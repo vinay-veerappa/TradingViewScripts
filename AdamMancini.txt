@@ -1,0 +1,404 @@
+//@version=5
+indicator(title='AdamManciniLevels', shorttitle='AdamManciniLevels', overlay=true, max_labels_count=500)
+
+// set to true to display debug messages
+show_debug = false
+debug = ''
+
+
+
+
+// *************************************************** 
+// SUPPORT/RESISTANCE LINES 
+// ***************************************************
+
+tooltip_om_block_text           = "Copy the entire block of Adam Mancini Support Levels You can copy additional levels to the front of the block later.\n\nThis field is for the ES levels only"
+tooltip_om_block_text_macro     = "Copy the entire block of Adam Mancini Resistance Levels, You can copy additional levels to the front of the block later."
+tooltip_convert_spy_spx         = "Enter the SPY/SPX conversion to use S/R and Macro Levels with SPX and US500. Conversion rate is located in market-analysis."
+tooltip_convert_spy_es          = "Enter the SPY/ES conversion to use S/R and Macro Levels with ES, MES and US500.F. Conversion rate is located in market-analysis."
+
+
+group_sr                        = "--- SUPPORT/RESISTANCE LEVELS ---"
+input_om_block_text             = input.string(title='Copy ES Support Levels Here:', defval='', group=group_sr, tooltip=tooltip_om_block_text)
+input_om_block_text_macro       = input.string(title='Copy ES Resistance Levels Here:', defval='', group=group_sr, tooltip=tooltip_om_block_text_macro)
+group_conversions               = "SPY to SPX/ES Conversions:"
+input_convert_spy_spx           = input.float(title='SPY/SPX:', defval=0.0, group=group_conversions, tooltip=tooltip_convert_spy_spx)
+input_convert_spy_es            = input.float(title='SPY/ES:',  defval=0.0, group=group_conversions, tooltip=tooltip_convert_spy_es)
+
+group_layout                    = 'Layout for S/R Levels:'
+input_show_lines                = input.bool(title='Show lines', defval=true, group=group_layout)
+input_show_labels               = input.bool(title='Show labels', defval=false, group=group_layout)
+input_show_prices               = input.bool(title='Show prices', defval=true, group=group_layout)
+
+input_text_size                 = input.int(title='Text Size ', defval=4, group=group_layout, inline='text', minval=1, maxval=5)
+input_text_offset               = input.int(title='Offset ', defval=15, group=group_layout, inline='text')
+
+input_line_size                 = input.int(title='Line Size ', defval=1, group=group_layout, inline='line', minval=1, maxval=5)
+input_line_style                = input.string(title='Style ', defval='Solid', options=['Dashed', 'Dotted', 'Solid'], inline='line', group=group_layout)
+
+input_color_r                   = input.color(title='Resistance', defval=color.rgb(115, 230, 8), group=group_layout, inline='color_r')
+input_color_r_strong            = input.color(title='Strong+', defval=color.rgb(57, 154, 50, 10), group=group_layout, inline='color_r')
+
+input_color_s                   = input.color(title='Support', defval=color.rgb(198, 18, 222, 50), group=group_layout, inline='color_s')
+input_color_s_strong            = input.color(title='Strong+', defval=color.rgb(124, 39, 157), group=group_layout, inline='color_s')
+
+
+
+
+var MAX_LEVELS              = 30
+var LINE_DISTANCE           = 500
+
+var LEVEL_TYPE_NA           = 0
+var LEVEL_TYPE_R            = 1
+var LEVEL_TYPE_S            = 2
+var LEVEL_TYPE_SR           = 3
+var LEVEL_TYPE_MACRO        = 4
+
+
+getLineStyle(inLineStyle) =>
+    line_style      = switch inLineStyle
+        'Dashed'    =>  line.style_dashed
+        'Dotted'    =>  line.style_dotted
+        'Solid'     =>  line.style_solid
+    line_style
+
+
+getTextSize(inTextSize) =>
+    text_size       = switch inTextSize 
+        1           =>  size.tiny
+        2           =>  size.small
+        3           =>  size.normal
+        4           =>  size.large
+        =>              size.huge
+    text_size
+    
+    
+isES() =>
+    if str.substring(syminfo.ticker,0,2) == "ES" or str.substring(syminfo.ticker,0,3) == "MES" or syminfo.ticker == "US500.F"
+        true
+    else
+        false
+
+isSPX() =>
+    if syminfo.ticker == "SPX" or syminfo.ticker == "US500"
+        true
+    else
+        false
+        
+isSPY() =>
+    if syminfo.ticker == "SPY"
+        true
+    else
+        false
+
+isValidTickerForLevels() =>
+    if isSPY() or isES() or isSPX()
+        true
+    else
+        false
+
+
+getLevelType(inChar) =>
+    if  inChar == 'R'       or inChar == 'r'
+        LEVEL_TYPE_R
+    else if inChar == 'S'   or inChar == 's'
+        LEVEL_TYPE_S
+    else
+        LEVEL_TYPE_NA
+
+
+getStrToInt(inStr) =>
+    int(str.tonumber(inStr))
+
+
+showLevels(inLevelType) =>
+    show = false
+    if inLevelType == LEVEL_TYPE_SR
+        if input_show_lines or input_show_labels or input_show_prices
+            show := true
+    
+
+
+
+var style_line              = getLineStyle(input_line_style)
+
+
+var size_text               = getTextSize(input_text_size)
+
+
+
+var level_resistance        = array.new_float(MAX_LEVELS,   0)
+var level_support           = array.new_float(MAX_LEVELS,   0)
+
+var level_resistance_macro  = array.new_float(MAX_LEVELS,   0)
+var level_support_macro     = array.new_float(MAX_LEVELS,   0)
+
+var strong_resistance       = array.new_bool(MAX_LEVELS,    false)
+var strong_support          = array.new_bool(MAX_LEVELS,    false)
+
+var strong_resistance_macro = array.new_bool(MAX_LEVELS,    false)
+var strong_support_macro    = array.new_bool(MAX_LEVELS,    false)
+
+var labels_r                = array.new_label(MAX_LEVELS,   na)
+var labels_s                = array.new_label(MAX_LEVELS,   na)
+var lines_r                 = array.new_line(MAX_LEVELS,    na)
+var lines_s                 = array.new_line(MAX_LEVELS,    na)
+
+var labels_r_macro          = array.new_label(MAX_LEVELS,   na)
+var labels_s_macro          = array.new_label(MAX_LEVELS,   na)
+var lines_r_macro           = array.new_line(MAX_LEVELS,    na)
+var lines_s_macro           = array.new_line(MAX_LEVELS,    na)
+
+// use temp debug array to add debug logging inside parseLevels (pinescript can't modify global vars inside functions)
+// var debug_arr               = array.new_string(1)
+print(txt) =>
+    // Create label on the first bar.
+    var lbl = label.new(bar_index, na, txt, xloc.bar_index, yloc.price, color(na), label.style_none, color.gray, size.normal, text.align_left)
+    // On next bars, update the label's x and y position, and the text it displays.
+    label.set_xy(lbl, bar_index, ta.highest(10)[1])
+    label.set_text(lbl, txt)
+
+//print("Multiplier = " + str.tostring(timeframe.multiplier) + "\nPeriod = " + timeframe.period + "\nHigh = " + str.tostring(high))
+// RoundToThousandsDown() rounds the specified number down to the next
+// full thousands (100s) value.
+
+RoundToThousandsDown(value) =>
+    math.floor(value/100)*100
+
+parseLevelsA(inBlockText,inLevel,inStrong) =>
+
+    // use with debug_arr to modify debug inside parseLevels
+    debug_temp = ''
+    if show_debug
+        debug_temp := debug
+
+    block_text = inBlockText
+    if str.length(block_text) > 0
+
+        // if show_debug
+        //     debug_temp += "Input: \n" + block_text + "\n"
+    
+        // clear out unnecessary chars
+        // hopefully their internal replace_all is more efficient than my parser below
+        block_text := str.replace_all(block_text,"\n"," ")
+        block_text := str.replace_all(block_text,"=", " ")
+        block_text := str.replace_all(block_text,":", " ")
+        block_text := str.replace_all(block_text,"-", ",")// repeated below?
+        block_text := str.replace_all(block_text,"$", " ")
+        block_text := str.replace_all(block_text,".", ",")
+        block_text := str.replace_all(block_text,"k", "000")
+        //block_text := str.replace_all(block_text,"-", " ,") // Replace with some other moniker to look for which can be used to split the number correctly and also to create a block if required.
+        block_text := str.replace_all(block_text,"(major)", "+")
+        block_text := str.replace_all(block_text,"Resistance", " ")
+        block_text := str.replace_all(block_text,"Supports", " ")
+        block_text := str.replace_all(block_text,"Support", " ")    
+    
+        
+        // convert  text string to char array
+        chars = str.split(block_text,",")
+        //print(str.tostring(chars))
+
+        i = 0
+        
+        // parse the input string, separate out the Resistance and Support levels
+        // line breaks are treated as spaces by pinescript, so we don't know when each line ends
+        // instead, we'll look for strings in this order, and ignore anything in between each:
+        //    1. Type of level (R or S)
+        //    2. Index number of level after the R or S (1..9)
+        //    3. The price at level
+        //    4. If it's a strong level (+ sign after price) 
+        while i < array.size(chars)
+            //Convert each string to a number
+            level = 0.0
+            getChars = array.get(chars,i)
+
+            if(str.contains(getChars, "+"))
+                array.set(inStrong,i,true)
+                getChars := str.match(getChars,"\\d+")
+ 
+            level := str.tonumber(getChars)
+            if  level < 100.00
+                level := level + RoundToThousandsDown(array.get(inLevel,i-1))
+            array.set(inLevel,i,level)
+            i := i+1
+            
+            //if show_debug
+            //    debug_temp += "LEVEL: \n" + level + "\n"
+        //print(str.tostring(inLevel))
+
+        //print(str.tostring(chars))
+    // if show_debug
+     //   for ii = MAX_LEVELS-1 to 0
+        //         level = array.get(inLevelResistance,ii)
+        //         rs    = array.get(inStrongResistance,ii)R6 - 395.33R6 - 395.33
+        //         if level > 0
+        //             rl = str.tostring(level)
+        //             strong = (rs ? "+" : "")
+        //             debug_temp += "R"+str.tostring(ii+1)+"="+rl+strong+"\n"
+            
+        //     for ii = 0 to MAX_LEVELS-1
+        //         level = array.get(inLevelSupport,ii)
+        //         ss    = array.get(inStrongSupport,ii)
+        //         if level > 0
+        //             sl = str.tostring(level)
+        //             strong = (ss ? "+" : "")
+        //             debug_temp += "S"+str.tostring(ii+1)+"="+sl+strong+"\n"
+                        
+    // end if str.length(block_text) > 0
+    
+    // if show_debug
+    //     // add temp debug string to debug array so we can update debug outside parseLevels
+    //     array.set(debug_arr,0,debug_temp)
+
+
+    // use with debug_arr to modify debug inside parseLevels
+    // debug_temp = ''
+    // if show_debug
+    //     debug_temp := debug
+
+  
+//print(str.tostring(input_om_block_text))
+// parse main  levels
+parseLevelsA(input_om_block_text,level_support,strong_support)
+parseLevelsA(input_om_block_text_macro,level_resistance,strong_resistance)
+
+         
+//print(str.tostring(level_resistance))
+
+if barstate.islast and isValidTickerForLevels()
+
+    if showLevels(LEVEL_TYPE_SR)
+
+
+        
+        //print(str.tostring(level_resistance[0]))
+        // if show_debug
+        //     // update debug string after parseLevels
+        //     debug := array.get(debug_arr,0)
+    
+        // Iterate through the level arrays
+        for i = 0 to MAX_LEVELS - 1
+            
+            
+            // ******************
+            // *** S/R LEVELS ***
+            // ******************
+    
+            
+            // get value of each level from SPY S/R Levels text block
+            level_r   = array.get(level_resistance,     i)
+            level_s   = array.get(level_support,        i)
+            strong_r  = array.get(strong_resistance,    i)
+            strong_s  = array.get(strong_support,       i)
+
+            if not isSPY()
+
+                if show_debug
+                    debug += "before: AR"+str.tostring(i+1)+"="+str.tostring(strong_r) + ",AS"+str.tostring(i+1)+"="+str.tostring(strong_s) + ";"
+    
+                conversion = 0.0
+                if isSPX()
+                    conversion := input_convert_spy_spx
+                else if isES()
+                    conversion := input_convert_spy_es
+                    
+                    
+                if level_r != 0
+                    level_r := math.round_to_mintick((level_r ) + conversion)
+                    
+                if level_s != 0
+                    level_s := math.round_to_mintick((level_s ) + conversion)
+                
+                
+                if show_debug
+                    debug += "after: AR"+str.tostring(i+1)+"="+str.tostring(level_r) + ",AS"+str.tostring(i+1)+"="+str.tostring(level_s) + "\n"
+    
+            color_r  = strong_r                                 ? input_color_r_strong              : input_color_r
+            color_s  = strong_s                                 ? input_color_s_strong              : input_color_s
+        
+            label_r  = input_show_labels                        ? 'AR' + str.tostring(i + 1)         : na
+            label_r += input_show_labels and input_show_prices  ? ' '                               : na
+            label_r += input_show_prices                        ? str.tostring(level_r, '#.00')     : na 
+            label_r += strong_r                                 ? '+'                               : na
+        
+            label_s  = input_show_labels                        ? 'AS' + str.tostring(i + 1)         : na
+            label_s += input_show_labels and input_show_prices  ? ' '                               : na
+            label_s += input_show_prices                        ? str.tostring(level_s, '#.00')     : na
+            label_s += strong_s                                 ? '+'                               : na
+        
+        
+            if input_show_labels or input_show_prices
+                // draw label for this level
+                label.delete(array.get(labels_r, i))
+                label.delete(array.get(labels_s, i))
+                array.set(labels_r, i, level_r != 0 ? label.new(bar_index + input_text_offset, level_r, label_r, xloc.bar_index, yloc.price, size=size_text, style=label.style_none, color=color.rgb(0, 0, 0, 100), textcolor=color_r, textalign=text.align_left) : label(na))
+                array.set(labels_s, i, level_s != 0 ? label.new(bar_index + input_text_offset, level_s, label_s, xloc.bar_index, yloc.price, size=size_text, style=label.style_none, color=color.rgb(0, 0, 0, 100), textcolor=color_s, textalign=text.align_left) : label(na))
+
+            if input_show_lines        
+                // draw line for this level
+                line.delete(array.get(lines_r, i))
+                line.delete(array.get(lines_s, i))
+                line_size_r  = strong_r                                 ? (input_line_size + 1)              : input_line_size
+                line_size_s  = strong_s                                 ? (input_line_size + 1)              : input_line_size
+
+
+                array.set(lines_r, i, level_r != 0 ? line.new(bar_index - LINE_DISTANCE, level_r, bar_index + LINE_DISTANCE, level_r, color=color_r, style=style_line, width=line_size_r) : na)
+                array.set(lines_s, i, level_s != 0 ? line.new(bar_index - LINE_DISTANCE, level_s, bar_index + LINE_DISTANCE, level_s, color=color_s, style=style_line, width=line_size_s) : na)
+        //end for i = 0 to MAX_LEVELS - 1
+
+
+        // if show_debug
+        //     // update debug string after parseLevels
+        //     debug := array.get(debug_arr,0)
+
+            //end for i = 0 to MAX_LEVELS - 1
+
+// end if barstate.islast
+
+// *****************************************
+// *** LIBRARY TO PRINT DEBUG DATA *********
+// *****************************************
+get_num(value) =>
+    value < 10 ? '0' + str.tostring(value) : str.tostring(value)
+
+get_date() =>
+    get_num(month) + '/' + get_num(dayofmonth) + '/' + get_num(year) + ' ' + get_num(hour) + ':' + get_num(minute)
+
+var log_time   = array.new_string(0)
+var log_msg    = array.new_string(0)
+log_print(message) =>
+    array.push(log_time,    get_date())
+    array.push(log_msg,     message)
+    
+log_print(debug)
+
+if barstate.islast 
+
+    log_show =      show_debug  //input.bool(true,    title = "Show Log?",               group = "Log")
+    log_num_msgs = 5         //input.int(5,        title = "# of message to show",    group = "Log")
+    log_offset =    0           //input.int(0,        title = "# of messages to offset", group = "Log")
+    
+    // LOGGING FUNCTION /// 
+    
+
+    if log_show
+
+        //log_print(debug)
+
+        var log_table = table.new(position=position.top_center,columns=2,rows=log_num_msgs+1)
+        // Show headers at top
+        table.cell(log_table,0, 0, 'Debug', bgcolor=color.rgb(50,50,50,0), text_color=color.rgb(255,255,0,0), text_size=size.small)
+        table.cell(log_table, 1, 0, 'Time',  bgcolor=color.rgb(50,50,50,0), text_color=color.rgb(255,255,0,0), text_size=size.small)
+    
+        for i = 1 to log_num_msgs by 1
+        
+            arr_i = array.size(log_msg) - log_num_msgs + i - 1 - log_offset
+//            arr_i = log_num_msgs + i - 1 - log_offset
+    
+            if arr_i < 0
+                break
+    
+            // Show each row
+            table.cell(log_table, 0, i, array.get(log_msg, arr_i), bgcolor=color.rgb(0,0,0,0),  text_size=size.small, text_color=color.rgb(255,255,255,0))
+            table.cell(log_table, 1, i, array.get(log_time, arr_i), bgcolor=color.rgb(0,0,0,0), text_size=size.small, text_color=color.rgb(255,255,255,0))    
+            
