@@ -1,0 +1,400 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+
+//@version=5
+
+indicator("VxV:Fib Bands", shorttitle='VxV:Fib Bands', overlay=true )
+
+// Start: Fibonacci Settings----------------------------------------------------
+sourceInput = input.source(close, "Source", group="Fibonacci Trade Entry Settings")
+
+//sourceTF = input.source(close, "Source", group="Fibonacci Trade Entry Settings")
+//tf = input.timeframe(title="Timeframe", defval="60").  options=['15','60','D', 'W', 'M']
+tf = input.timeframe(defval='240', title="Time Frame Resolution", group="Fibonacci Trade Entry Settings")
+per = input(1, title='Fibonacci length', tooltip='Number of bars to look back. Recommended for beginners to set ADX Smoothing and DI Length to the same value as this.', group="Fibonacci Trade Entry Settings")
+//hl = ta.highest(high, per)  //Top-High Fib Border
+//ll = ta.lowest(low, per)    //Top-Low Fib Border
+
+hl = request.security(syminfo.tickerid, tf, ta.highest(high, per), barmerge.gaps_off, barmerge.lookahead_on)
+ll = request.security(syminfo.tickerid, tf, ta.lowest(low, per), barmerge.gaps_off, barmerge.lookahead_on)
+
+
+
+dist = hl - ll              //Range of the channel    
+hf = hl - dist * 0.236      //Bottom-High Fib Border
+cfh = hl - dist * 0.382     //Top-Center Fib Border
+cfl = hl - dist * 0.618     //Bottom-Center Fib Border
+lf = hl - dist * 0.764      //Top-Low Fib Border
+
+//change these values as per trading warz.   bottom should be 0 actually.
+// add a slippage factor of a few cents to the levels also??
+
+// Plot Fibonacci Areas
+fill(plot(hl, title='Top-High Fib Border', color=color.new(#00FFFF, 50), linewidth=1), plot(hf, title='Bottom-High Fib Border', color=color.new(#38761d, 50), linewidth=1), color=color.new(#00FFFF, 80), title='Uptrend Fibonacci Zone @ 23.6%')  //uptrend zone
+fill(plot(cfh, title='Top-Center Fib Border', color=color.new(#0589f4, 50), linewidth=1), plot(cfl, title='Bottom-Center Fib Border', color=color.new(#2018ff, 50), linewidth=1), color=color.new(color.blue, 80), title='Ranging Fibonacci Zone @ 61.8%')  // ranging zone
+fill(plot(lf, title='Top-Low Fib Border', color=color.new(color.yellow, 50), linewidth=1), plot(ll, title='Bottom-Low Fib Border', color=color.new(#bf00ff, 50), linewidth=1), color=color.new(color.orange, 80), title='Downtrend Fibonacci Zone @ 76.4%')  //down trend zone
+
+
+// Input to setup Buy signals when the source crosses a fib border
+entry_trigger = input.string("1-Crosses", title="Buy signals when the source: [cont.]", options=["1-Crosses", "2-Crosses up", "3-Crosses down", "4-LowZone"], tooltip="'Crosses' includes up and down movements. 'Crosses Up' only includes up movements. 'Crosses Down' only includes down movements" , group="Fibonacci Trade Entry Settings")
+e_trig = 0
+if entry_trigger == "1-Crosses"
+    e_trig := 1
+else if entry_trigger == "2-Crosses up"
+    e_trig := 2
+else if entry_trigger == "3-Crosses down"
+    e_trig := 3
+else if entry_trigger == "4-LowZone"
+    e_trig := 4
+
+entry_choice = input.string("6-Bottom-Low Fib Border", title="...The Fib line:", options=["1-Top-High Fib Border", "2-Bottom-High Fib Border", "3-Top-Center Fib Border", "4-Bottom-Center Fib Border", "5-Top-Low Fib Border", "6-Bottom-Low Fib Border"],
+   tooltip='There are three fib zones and each zone has 2 borders (Top & Bottom). The options are listed from the top zone to the bttom zone. The bottom zone is the Downtrend zone; the middle zone is the Ranging zone; The top fib zone is the Uptrend zone;',
+   group="Fibonacci Trade Entry Settings")
+
+fib_level = float(0)
+if entry_choice == "1-Top-High Fib Border"
+    fib_level := hl
+else if entry_choice == "2-Bottom-High Fib Border"
+    fib_level := hf
+else if entry_choice == "3-Top-Center Fib Border"
+    fib_level := cfh
+else if entry_choice == "4-Bottom-Center Fib Border"
+    fib_level := cfl
+else if entry_choice == "5-Top-Low Fib Border"
+    fib_level := lf
+else if entry_choice == "6-Bottom-Low Fib Border"
+    fib_level := ll
+
+
+// Start: Trade Exit Settings---------------------------------------------------
+// Start: Fibonacci Exit--------------------------------------------------------
+fib_tp_trigger = input.string("1-Crosses", title="Take Profit when the source: [cont.]", options=["1-Crosses", "2-Crosses up", "3-Crosses down", "4-Reaches Target Take Profit (%)","5-TopZone","6-AboveCenterZone" ], tooltip=
+   "'Crosses' includes up and down movements. 'Crosses Up' only includes up movements. 'Crosses Down' only includes down movements" , group="Fibonacci Trade Exit Settings")
+
+fib_tp = 0
+if fib_tp_trigger == "1-Crosses"
+    fib_tp := 1
+else if fib_tp_trigger == "2-Crosses up"
+    fib_tp := 2
+else if fib_tp_trigger == "3-Crosses down"
+    fib_tp := 3
+else if fib_tp_trigger == "4-Reaches Target Take Profit (%)"
+    fib_tp := 4
+else if fib_tp_trigger == "5-TopZone"
+    fib_tp := 5
+else if fib_tp_trigger == "6-AboveCenterZone"
+    fib_tp := 6
+
+// Take Profit Drop-down menu option
+// Declare take_profit
+take_profit = float(0.03)
+tp_choice = input.string("1-Top-High Fib Border", title="...The Fib line:", options=["1-Top-High Fib Border", "2-Bottom-High Fib Border", "3-Top-Center Fib Border", "4-Bottom-Center Fib Border"], tooltip=
+  'Select how to exit your trade and take profit. Then specify below this option the condition to exit. "Top-High Fib Border" is the top-most Fibonacci line in the green uptrend zone. "Bottom-High Fib Border" is the bottom Fibonacci line in the green uptrend zone. You can find these lines on the "Style" tab and toggle them off/on to locate these lines for more clarity', 
+  group="Fibonacci Trade Exit Settings")
+if tp_choice == "1-Top-High Fib Border"
+    take_profit := float(hl)
+else if tp_choice == "2-Bottom-High Fib Border"
+    take_profit := float(hf)
+else if tp_choice == "3-Top-Center Fib Border"
+    take_profit := float(cfh)
+else if tp_choice == "4-Bottom-Center Fib Border"
+    take_profit := float(cfl)
+
+// Input for TTP %
+if fib_tp == 4 
+    take_profit := input.float(3.0, title='Target Take Profit (%)', step=0.5, minval=0.0, tooltip='Only used if "Target Take Profit (%)" is selected above.', group="Fibonacci Trade Exit Settings") / 100
+
+// Take Profit is not being used right now: Need to fix this.
+
+// Trailing
+trailing = input.float(0.0, title='Trailing deviation. Default= 0.0 (%)', step=0.1, minval=0.0, group="Fibonacci Trade Exit Settings") / 100
+
+
+// Fibonacci Take Profit Conditions
+var trade_open = false
+fb_tp_condition = false
+
+if trade_open == true
+    if fib_tp == 1
+        fb_tp_condition := ta.cross(sourceInput, take_profit) 
+    else if fib_tp == 2
+        fb_tp_condition := ta.crossover(sourceInput, take_profit) 
+    else if fib_tp == 3
+        fb_tp_condition := ta.crossunder(sourceInput, take_profit)
+    else if fib_tp == 4
+        if sourceInput > hf
+            fb_tp_condition := true
+    else if fib_tp == 5
+        if sourceInput > cfh
+            fb_tp_condition := true
+    else
+        fb_tp_condition := false
+// End: Trade Exit Settings-----------------------------------------------------
+
+
+
+closeLongCondition = false
+// Determine if Fib Stop Loss condition is met
+if fib_tp and fb_tp_condition
+    closeLongCondition :=  fb_tp_condition
+
+//plotshape(closeLongCondition ==1 , style=shape.xcross,color=color.green, location = location.abovebar)
+// End: Fibonacci Exit----------------------------------------------------------
+
+
+
+
+// Start: WHEN TO BUY LOGIC-----------------------------------------------------
+// Determine if Fib Entry Trigger was met
+e_trig_bool = bool(false)
+var buy_timer = 0 // Used to make sure we do not buy and close on the same candle in the indicator
+
+
+if trade_open == false
+    if e_trig == 1
+        e_trig_bool := ta.cross(sourceInput, fib_level) //- syminfo.mintick * 10 
+    else if e_trig == 2
+        e_trig_bool := ta.crossover(sourceInput, fib_level)
+    else if e_trig == 3
+        e_trig_bool := ta.crossunder(sourceInput, fib_level)
+    else if e_trig == 4 // VXV: Alternate entry condition
+        if sourceInput > ll and sourceInput <= lf
+            e_trig_bool := true
+    else 
+        e_trig_bool := false
+
+
+// First Fib Entry Calculation for when to buy
+buy = e_trig_bool
+trade_open := buy ? true : trade_open
+
+longCondition = buy
+
+shortCondition = false
+closeShortCondition = false
+//HARDCODED Short Condition
+
+//if (not longCondition)
+shortCondition := ta.crossunder(sourceInput, hf)
+closeShortCondition := ta.crossunder(sourceInput, lf)
+
+
+plotshape(longCondition, style=shape.triangleup,color=color.green, location = location.belowbar, size = size.small)
+plotshape(closeLongCondition, style=shape.xcross,color=color.yellow, location = location.abovebar, size = size.tiny)
+
+plotshape(shortCondition  , style=shape.triangledown,color=color.red, location = location.abovebar, size = size.small)
+plotshape(closeShortCondition , style=shape.xcross,color=color.red, location = location.belowbar, size = size.tiny)
+
+
+// Start: Fib Based Stop Loss---------------------------------------------------
+tp_choice_fibstoploss = input.bool(false, title='Use Fib-based Stop Loss?', tooltip='Use this to use the settings below to exit the trade when the source crosses a Fib Border', group="Fib Based Stop Loss")
+
+fib_exit_trigger = input.string("1-Crosses", title="Fib Stop Loss signals when the source: [cont.]", options=["1-Crosses", "2-Crosses up", "3-Crosses down","SHORT : Use ATR for SL","LONG : Use ATR for SL"], 
+   tooltip="Ignored if above option for Fib-based Stop Loss is not enabled. 'Crosses' includes up and down movements. 'Crosses Up' only includes up movements. 'Crosses Down' only includes down movements" , group="Fib Based Stop Loss")
+fib_exit = 0
+if fib_exit_trigger == "1-Crosses"
+    fib_exit := 1
+else if fib_exit_trigger == "2-Crosses up"
+    fib_exit := 2
+else if fib_exit_trigger == "3-Crosses down"
+    fib_exit := 3
+else if fib_exit_trigger == "SHORT : Use ATR for SL"
+    fib_exit := 4
+else if fib_exit_trigger == "LONG : Use ATR for SL"
+    fib_exit := 5
+
+fib_exit_choice = input.string("6-Bottom-Low Fib Border", title="...The Fib line:", options=["1-Top-High Fib Border", "2-Bottom-High Fib Border", "3-Top-Center Fib Border", "4-Bottom-Center Fib Border", "5-Top-Low Fib Border", "6-Bottom-Low Fib Border"],
+   tooltip='There are three fib zones and each zone has 2 borders (Top & Bottom). The options are listed from the bottom zone to the top zone. The bottom zone is the Downtrend zone; the middle zone is the Ranging zone; The top fib zone is the Uptrend zone;',
+   group="Fib Based Stop Loss")
+
+// Using ATR for Stop Loss calculation 
+// VxV Move this to Stop Loss generic below, so it is easier to copy around to different scripts
+atrPeriod = input.int(title='ATR Period', defval=3, minval=1, group="ATR Bands Standard Settings", tooltip="This setting is used in the raw ATR value calculation.  Lower values will be more reactive to recent price movement, while higher values will better indicate loger-term trend.\n\n" +
+                 "Most often this is set at either 14 or 21.\nDefault: 3")
+atrMultiplier = input.float(title='ATR Band Scale Factor', defval=2.5, step=0.1, minval=0.01, group="ATR Bands Standard Settings", tooltip="Scaling factor (aka multiplier) for the ATR to use for plotting the ATR bands.  " +
+                     "This will usually be between 1 and 3.\n\nDefault: 2.5")
+
+tf_atr = input.timeframe(defval='60', title="ATR Time Frame Resolution", group="ATR Bands Standard Settings")
+
+// ATR
+atr = request.security(syminfo.tickerid, tf_atr, ta.atr(atrPeriod), barmerge.gaps_off, barmerge.lookahead_on) //* 100 / sourceInput
+
+scaledATR = atr * atrMultiplier
+upperATRBand = request.security(syminfo.tickerid, tf_atr, high, barmerge.gaps_off, barmerge.lookahead_on) + scaledATR // should we use current timeframe or a different time frame. Need to experiment here
+lowerATRBand = request.security(syminfo.tickerid, tf_atr, low, barmerge.gaps_off, barmerge.lookahead_on) - scaledATR
+
+//natr = 100 * atr(length) / close
+slValue = float (0)
+// OG ATR Band Plotting for debugging
+//plot(upperATRBand, title="Upper ATR Band", color=color.rgb(0, 255, 0, 50), linewidth=2)
+//plot(lowerATRBand, title="Lower ATR Band", color=color.rgb(255, 0, 0, 50), linewidth=2)
+
+
+fib_exit_level = float(0)
+if fib_exit_choice == "1-Top-High Fib Border"
+    fib_exit_level := hl
+else if fib_exit_choice == "2-Bottom-High Fib Border"
+    fib_exit_level := hf
+else if fib_exit_choice == "3-Top-Center Fib Border"
+    fib_exit_level := cfh
+else if fib_exit_choice == "4-Bottom-Center Fib Border"
+    fib_exit_level := cfl
+else if fib_exit_choice == "5-Top-Low Fib Border"
+    fib_exit_level := lf
+else if fib_exit_choice == "6-Bottom-Low Fib Border"
+    fib_exit_level := ll
+
+// Determine which Fib Based Stop Loss was selected
+exit_trig_bool = bool(false)
+if fib_exit == 1
+    exit_trig_bool := ta.cross(sourceInput, fib_exit_level)
+else if fib_exit == 2
+    exit_trig_bool := ta.crossover(sourceInput, fib_exit_level)
+    slValue := lowerATRBand
+else if fib_exit == 3
+    exit_trig_bool := ta.crossunder(sourceInput, fib_exit_level)
+    slValue := lowerATRBand
+else if fib_exit == 4
+    exit_trig_bool := true
+    slValue := upperATRBand
+else if fib_exit == 5
+    exit_trig_bool := true
+    slValue := lowerATRBand
+else 
+    exit_trig_bool := false
+
+
+trade_open := exit_trig_bool ? false : trade_open
+slValue := longCondition? lowerATRBand : upperATRBand
+//plot(slValue, title="StopLoss", color=color.white, linewidth=2)
+
+//ta.barssince(longCondition)
+
+slLongClose = false
+// Determine if Fib Stop Loss condition is met
+if tp_choice_fibstoploss and exit_trig_bool
+    slLongClose :=  exit_trig_bool
+
+//plotshape(slLongClose , style=shape.cross,color=color.red, location = location.belowbar, size = size.small)
+    //strategy.close_all(comment='Fib stop loss @' + str.tostring(strategy.position_avg_price))
+   // current_so := 0
+   // previous_high_value := 0
+   // original_ttp_value := 0
+    // original_ttp_value
+// End: Fib Based Stop Loss-----------------------------------------------------
+
+//define as 0 if do not want to use
+//closeLongCondition =  (exit_trig_bool ) ? 1 : 0 
+
+//HARDCODED Short Condition
+
+
+//closeShortCondition = 0
+//slShortClose = false // FIX THIS
+
+// EMA Filter
+//░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+i_emaFilterEnabled = input.bool(defval = false , title = "Enable EMA Filter", tooltip = "Enable if you would like to conditionally have entries incorporate EMA as a filter where source is above/below the EMA line", group ="EMA Filter" ) 
+i_emaLength = input.int(200, title="EMA Length", minval=1, group ="EMA Filter")
+i_emaSource = input.source(close,"EMA Source" , group ="EMA Filter")
+//emaValue = i_emaFilterEnabled ? ta.ema(i_emaSource, i_emaLength) : na
+
+//emaValue =  ta.hma(i_emaSource, i_emaLength)
+
+//emaValue = request.security(syminfo.tickerid, tf_atr, ta.ema(i_emaSource, i_emaLength), barmerge.gaps_off, barmerge.lookahead_on)
+
+[md,sig,hist] = request.security(syminfo.tickerid, tf_atr, ta.macd(i_emaSource,12,26,9), barmerge.gaps_off, barmerge.lookahead_on)
+
+
+//bool isEMAFilterEnabledAndCloseAboveMA = i_emaFilterEnabled ? i_emaSource > emaValue : true
+//bool isEMAFilterEnabledAndCloseBelowMA = i_emaFilterEnabled ? i_emaSource < emaValue : true
+//colorVal = emaValue[1] > emaValue? color.red : color.rgb(255, 242, 0, 4)
+//plot(emaValue, title="EMA", color=colorVal, linewidth=2)
+//bool isEMAFilterEnabledAndCloseAboveMA = i_emaFilterEnabled ? emaValue[1] < emaValue : true
+//bool isEMAFilterEnabledAndCloseBelowMA = i_emaFilterEnabled ? emaValue[1] > emaValue : true
+bool isEMAFilterEnabledAndCloseAboveMA = i_emaFilterEnabled ? sig < md : true
+bool isEMAFilterEnabledAndCloseBelowMA = i_emaFilterEnabled ? sig > md : true
+
+
+
+// ADX Filter
+//░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+i_adxFilterEnabled = input.bool(defval = false , title = "Enable ADX Filter", tooltip = "Enable if you would like to conditionally have entries incorporate ADX as a filter", group ="ADX Filter" ) 
+i_adxVariant = input.string('ORIGINAL', title='ADX Variant', options=['ORIGINAL', 'MASANAKAMURA'], group ="ADX Filter" )
+i_adxSmoothing = input.int(14, title="ADX Smoothing", group="ADX Filter")
+i_adxDILength = input.int(14, title="DI Length", group="ADX Filter")
+i_adxLowerThreshold = input.float(25, title="ADX Threshold", step=.5, group="ADX Filter")
+
+calcADX_Masanakamura(int _len) =>
+    _smoothedTrueRange = 0.0
+    _smoothedDirectionalMovementPlus = 0.0
+    _smoothed_directionalMovementMinus = 0.0
+    _trueRange = math.max(math.max(high - low, math.abs(high - nz(close[1]))), math.abs(low - nz(close[1])))
+    _directionalMovementPlus = high - nz(high[1]) > nz(low[1]) - low ? math.max(high - nz(high[1]), 0) : 0
+    _directionalMovementMinus = nz(low[1]) - low > high - nz(high[1]) ? math.max(nz(low[1]) - low, 0) : 0
+    _smoothedTrueRange := nz(_smoothedTrueRange[1]) - nz(_smoothedTrueRange[1]) / _len + _trueRange
+    _smoothedDirectionalMovementPlus := nz(_smoothedDirectionalMovementPlus[1]) - nz(_smoothedDirectionalMovementPlus[1]) / _len + _directionalMovementPlus
+    _smoothed_directionalMovementMinus := nz(_smoothed_directionalMovementMinus[1]) - nz(_smoothed_directionalMovementMinus[1]) / _len + _directionalMovementMinus
+    DIP = _smoothedDirectionalMovementPlus / _smoothedTrueRange * 100
+    DIM = _smoothed_directionalMovementMinus / _smoothedTrueRange * 100
+    _DX = math.abs(DIP - DIM) / (DIP + DIM) * 100
+    adx = ta.sma(_DX, _len)
+    [DIP, DIM, adx]
+
+[DIPlusO, DIMinusO, ADXO] = ta.dmi(i_adxDILength, i_adxSmoothing)
+[DIPlusM, DIMinusM, ADXM] = calcADX_Masanakamura(i_adxDILength)
+
+adx = i_adxFilterEnabled and i_adxVariant == "ORIGINAL" ? ADXO : ADXM
+bool isADXFilterEnabledAndAboveThreshold = i_adxFilterEnabled ? adx > i_adxLowerThreshold : true
+
+///Start / End Time Periods
+//░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+i_startPeriodEnabled = input.bool(true, 'Start', group='Date Range', inline='Start Period')
+i_startPeriodTime = input.time(timestamp('1 Jan 2019'), '', group='Date Range', inline='Start Period')
+i_endPeriodEnabled = input.bool(true, 'End', group='Date Range', inline='End Period')
+i_endPeriodTime = input.time(timestamp('31 Dec 2030'), '', group='Date Range', inline='End Period')
+
+isStartPeriodEnabledAndInRange = i_startPeriodEnabled ? i_startPeriodTime <= time : true
+isEndPeriodEnabledAndInRange = i_endPeriodEnabled ? i_endPeriodTime >= time : true
+
+// Time-Of-Day Window
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+// Inspired from https://www.tradingview.com/script/3BmID7aW-Highlight-Trading-Window-Simple-Hours-Time-of-Day-Filter/
+i_timeFilterEnabled = input.bool(defval = false , title = "Enable Time-Of-Day Window", tooltip = "Limit the time of day for trade execution", group ="Time Window" ) 
+i_timeZone = input.string(title="Select Local Time Zone", defval="GMT-5", options=["GMT-8","GMT-7", "GMT-6", "GMT-5", "GMT-4", "GMT-3", "GMT-2", "GMT-1", "GMT", "GMT+1", "GMT+2",	"GMT+3","GMT+4","GMT+5","GMT+6","GMT+7","GMT+8","GMT+9","GMT+10","GMT+11","GMT+12","GMT+13"], group="Time Window")
+i_betweenTime = input.session('0700-0900',  title = "Time Filter", group="Time Window")   // '0000-0000' is anytime to enter
+isWithinWindowOfTime(_position) =>                                                      
+    currentTimeIsWithinWindowOfTime = not na(time(timeframe.period, _position + ':1234567', i_timeZone))
+bool isTimeFilterEnabledAndInRange = i_timeFilterEnabled ? isWithinWindowOfTime(i_betweenTime) : true
+
+isStartEndPeriodsAndTimeInRange = isStartPeriodEnabledAndInRange and isEndPeriodEnabledAndInRange and isTimeFilterEnabledAndInRange
+
+// Trade Direction 
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+i_tradeDirection = input.string('Long and Short', title='Trade Direction', options=['Long and Short', 'Long Only', 'Short Only'], group='Trade Direction')
+
+
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+i_alertSyntaxPrefix = input.string(defval='CRYPTANEX_99FTX_Strategy-Name-Here', title='Alert Syntax Prefix', group='ProfitView Alert Syntax')
+alertSyntaxBase = i_alertSyntaxPrefix + '\n#' + str.tostring(open) + ',' + str.tostring(high) + ',' + str.tostring(low) + ',' + str.tostring(close) + ',' + str.tostring(volume) + ','
+var debugLong = array.new_int(1) // Using an array to enable setting of global variable from function
+//bgcolor(array.get(debugLong, 0) ? color.yellow : na)
+
+/// Trade Execution
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+longConditionCalc = (longCondition and isADXFilterEnabledAndAboveThreshold and isEMAFilterEnabledAndCloseAboveMA)
+shortConditionCalc = (shortCondition and isADXFilterEnabledAndAboveThreshold and isEMAFilterEnabledAndCloseBelowMA)
+
+//plotshape(longConditionCalc and i_tradeDirection != 'Short Only', style=shape.arrowdown,color=color.blue, location = location.bottom)
+
+
+
+if longConditionCalc and i_tradeDirection != 'Short Only' 
+    alert(message=alertSyntaxBase + 'side:long', freq=alert.freq_once_per_bar_close)
+
+if shortConditionCalc and i_tradeDirection != 'Long Only' 
+    alert(message=alertSyntaxBase + 'side:short', freq=alert.freq_once_per_bar_close)
+    
