@@ -356,12 +356,26 @@ isEndPeriodEnabledAndInRange = i_endPeriodEnabled ? i_endPeriodTime >= time : tr
 // Time-Of-Day Window
 // ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 // Inspired from https://www.tradingview.com/script/3BmID7aW-Highlight-Trading-Window-Simple-Hours-Time-of-Day-Filter/
-i_timeFilterEnabled = input.bool(defval = false , title = "Enable Time-Of-Day Window", tooltip = "Limit the time of day for trade execution", group ="Time Window" ) 
-i_timeZone = input.string(title="Select Local Time Zone", defval="GMT-5", options=["GMT-8","GMT-7", "GMT-6", "GMT-5", "GMT-4", "GMT-3", "GMT-2", "GMT-1", "GMT", "GMT+1", "GMT+2",	"GMT+3","GMT+4","GMT+5","GMT+6","GMT+7","GMT+8","GMT+9","GMT+10","GMT+11","GMT+12","GMT+13"], group="Time Window")
-i_betweenTime = input.session('0700-0900',  title = "Time Filter", group="Time Window")   // '0000-0000' is anytime to enter
+i_timeFilterEnabled = input.bool(defval = true , title = "Enable Time-Of-Day Window", tooltip = "Limit the time of day for trade execution", group ="Time Window" ) 
+i_KillzonesEnabled = input.bool(defval = false , title = "Use Killzones", tooltip = "Use London, NY AM and NY PM Killzones", group ="Time Window" ) 
+
+i_timeZone = input.string(title="Select Local Time Zone", defval="GMT-4", options=["GMT-8","GMT-7", "GMT-6", "GMT-5", "GMT-4", "GMT-3", "GMT-2", "GMT-1", "GMT", "GMT+1", "GMT+2",	"GMT+3","GMT+4","GMT+5","GMT+6","GMT+7","GMT+8","GMT+9","GMT+10","GMT+11","GMT+12","GMT+13"], group="Time Window")
+i_betweenTime = input.session('0100-1545',  title = "Time Window", group="Time Window")   // '0000-0000' is anytime to enter
+i_LunchTime = input.session('1200-1300',  title = "Lunch Time Window", group="Time Window")   // '0000-0000' is anytime to enter
+i_AsiaKZTime = input.session('1930-0000',  title = "Asia KZ Time Window", group="Time Window")   // '0000-0000' is anytime to enter
+i_LoKZTime = input.session('0200-0700',  title = "London KZ Time Window", group="Time Window")   // '0000-0000' is anytime to enter
+i_NYAMKZTime = input.session('0800-1100',  title = "NY AM Time Window", group="Time Window")   // '0000-0000' is anytime to enter
+i_NYPMKZTime = input.session('1400-1545',  title = "NY PM Time Window", group="Time Window")   // '0000-0000' is anytime to enter
+
+
 isWithinWindowOfTime(_position) =>                                                      
     currentTimeIsWithinWindowOfTime = not na(time(timeframe.period, _position + ':1234567', i_timeZone))
-bool isTimeFilterEnabledAndInRange = i_timeFilterEnabled ? isWithinWindowOfTime(i_betweenTime) : true
+isTimeFilterEnabledAndInRange = false
+
+if i_KillzonesEnabled
+    isTimeFilterEnabledAndInRange := i_timeFilterEnabled ? isWithinWindowOfTime(i_LoKZTime) or isWithinWindowOfTime(i_NYAMKZTime) or isWithinWindowOfTime(i_NYPMKZTime)   : true
+else 
+    isTimeFilterEnabledAndInRange := i_timeFilterEnabled ? isWithinWindowOfTime(i_betweenTime) and not isWithinWindowOfTime(i_LunchTime) : true
 
 isStartEndPeriodsAndTimeInRange = isStartPeriodEnabledAndInRange and isEndPeriodEnabledAndInRange and isTimeFilterEnabledAndInRange
 
@@ -456,7 +470,7 @@ if isStartEndPeriodsAndTimeInRange
         strategy.exit("SL Short", from_entry = 'Short', stop = slValue, comment = "slValue Short")
         alert(message=alertSyntaxBase + 'side:short', freq=alert.freq_once_per_bar_close)
     
-else
+else if isWithinWindowOfTime("1550-1800")
     // This snippet is for closing all orders at EOD before market closes (Requirement for prop firms
     // Incase we still have a buy stop order in the market
     strategy.cancel_all()
@@ -470,14 +484,17 @@ strategy.exit('TP3', qty_percent=i_takeProfitQuantityPercent3, profit=per(i_take
 strategy.exit('i_takeProfitTargetPercent4', profit=per(i_takeProfitTargetPercent4))
 
     // Stop Loss
-strategy.close('Long', qty_percent=100, comment='SL Long', when=slLongClose)
-strategy.close('Short', qty_percent=100, comment='SL Short', when=slShortClose)
+if(slLongClose)
+    strategy.close('Long', qty_percent=100, comment='SL Long')
+if(slShortClose)
+    strategy.close('Short', qty_percent=100, comment='SL Short')
+
     // Conditional Closes
 if(closeLongCondition)
     strategy.close('Long', qty_percent=100, comment='Close Long')
         //array.set(debugLong, 0, 0) // Make background yellow
 if(closeShortCondition)
-    strategy.close('Short', qty_percent=100, comment='Close Short', when=closeShortCondition)
+    strategy.close('Short', qty_percent=100, comment='Close Short')
 
 
 // Global Dashboard Variables
