@@ -1,0 +1,147 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © ClayeWeight
+// 
+// Multi-TimeFrame Support and Resistance
+// 
+// ENJOY THE FREE SCRIPT
+
+//@version=5
+indicator(title='VxV SnrLb - MTF S/R', shorttitle='VxV SnrLb - MTF S/R', overlay=true)
+_v = input.string("1.0.4", title="Version", options=["1.0.4"], group="Sonarlab.io", tooltip="This is a free script based on our premium Liquid indicator. Get a free trial of our Liquid indicator by visiting our website.\nhttps://www.sonarlab.io")
+
+sr_line_trans = 30
+sr_trackprice = true
+
+left = input.int(defval=5, title="Left Bars", minval=1, group="Support & Resistance")
+right = input.int(defval=5, title="Right Bars", minval=1, group="Support & Resistance")
+line_width = input.int(defval=3, title="Line Width", minval=1, group="Support & Resistance")
+
+activeATF = input.bool(true, "Current Timeframe", group="S/R TimeFrames", inline="", tooltip="Show you current timeframe support and resistance levels")
+
+activeM = input.bool(true, "Monthly", group="S/R TimeFrames", inline="sr-a")
+activeW = input.bool(true, "Weekly", group="S/R TimeFrames", inline="sr-a")
+
+activeD = input.bool(true, "Daily  ", group="S/R TimeFrames", inline="sr-a")
+active4h = input.bool(true, "4 Hour  ", group="S/R TimeFrames", inline="sr-a")
+active1h = input.bool(true, "1 Hour  ", group="S/R TimeFrames", inline="sr-a")
+active30m = input.bool(true, "M30   ", group="S/R TimeFrames", inline="sr-b")
+active15m = input.bool(true, "M15    ", group="S/R TimeFrames", inline="sr-b")
+active5m = input.bool(true, "M5", group="S/R TimeFrames", inline="sr-b")
+
+
+sr_color = input.color(color.new(#b8bbc0, 50), "S/R Color", group="Colors") 
+c_white = input.color(color.new(color.white, 50), "Label Color", group="Colors")
+
+float level1 = na
+float level2 = na
+float level3 = na
+float level4 = na
+float level5 = na
+float level6 = na
+float level7 = na
+float level8 = na
+float level9 = na
+float level0 = na
+
+float levelW_Hi = na
+float levelW_Lo = na
+float levelM_Hi = na
+float levelM_Lo = na
+
+float level15m = na
+float level15m1 = na
+
+float level5m = na
+float level5m1 = na
+
+pivot_tf_high(tf, src, left, right, occ) =>
+    request.security(syminfo.tickerid, tf, ta.valuewhen(ta.pivothigh(src, left, right), close[right], 0))
+
+pivot_tf_low(tf, src, left, right, occ) =>
+    request.security(syminfo.tickerid, tf, ta.valuewhen(ta.pivotlow(src, left, right), close[right], 0))
+
+if activeATF
+    level1 := ta.valuewhen(ta.pivothigh(close, left, right), close[right], 0)
+    level2 := ta.valuewhen(ta.pivotlow(close, left, right), close[right], 0)
+
+if timeframe.isintraday
+    if active4h
+        level3 := pivot_tf_high('240', close, left, right, 0)
+        level4 := pivot_tf_low('240', close, left, right, 0)
+
+    if active1h
+        level5 := pivot_tf_high('60', close, left, right, 0)
+        level6 := pivot_tf_low('60', close, left, right, 0)
+    
+    if active30m
+        level7 := pivot_tf_high('30', close, left, right, 0)
+        level8 := pivot_tf_low('30', close, left, right, 0)
+    
+    if active15m
+        level15m := pivot_tf_high('15', close, left, right, 0)
+        level15m1 := pivot_tf_low('15', close, left, right, 0)
+    
+    if active5m
+        level5m := pivot_tf_high('5', close, left, right, 0)
+        level5m1 := pivot_tf_low('5', close, left, right, 0)
+
+    if activeD
+        level9 := pivot_tf_high('D', close, left, right, 0)
+        level0 := pivot_tf_low('D', close, left, right, 0)
+        
+    if activeW
+        levelW_Hi := pivot_tf_high('W', close, left, right, 0)
+        levelW_Lo := pivot_tf_low('W', close, left, right, 0)
+        
+
+    if activeD
+        levelM_Hi := pivot_tf_high('M', close, left, right, 0)
+        levelM_Lo := pivot_tf_low('M', close, left, right, 0)
+        
+
+//Only show the strongest support/resistance levels
+if level5 == level7
+    level7 := na
+if level6 == level8
+    level8 := na
+    
+if level1 == level3 or level1 == level5 or level1 == level7 or level1 == level9 or level1 == level15m or level1 == level15m1 or level1 == level5m or level1 == level5m1 or level1 == levelW_Hi or level1 == levelM_Hi
+    level1 := na
+if level2 == level4 or level2 == level6 or level2 == level8 or level2 == level0 or level2 == level15m or level2 == level15m1 or level2 == level5m or level2 == level5m1 or level2 == levelW_Lo or level2 == levelM_Lo
+    level2 := na
+    
+if level15m == level3 or level15m == level4 or level15m == level5 or level15m == level6 or level15m == level7 or level15m == level8 or level15m == levelW_Hi or level15m == levelM_Hi
+    level15m := na
+if level15m1 == level3 or level15m1 == level4 or level15m1 == level5 or level15m1 == level6 or level15m1 == level7 or level15m1 == level8 or level15m == levelW_Lo or level15m == levelM_Lo
+    level15m1 := na
+    
+if level5m == level3 or level5m == level4 or level5m == level5 or level5m == level6 or level5m == level7 or level5m == level8 or level5m == level15m1 or level5m == level15m or level5m1 == levelW_Hi or level5m1 == levelM_Hi
+    level5m := na
+if level5m1 == level3 or level5m1 == level4 or level5m1 == level5 or level5m1 == level6 or level5m1 == level7 or level5m1 == level8 or level5m1 == level15m1 or level5m1 == level15m or  level5m1 == levelW_Lo or level5m1 == levelM_Lo
+    level5m1 := na
+
+
+
+    
+create_line_label(lvl, lvl2, txt)=>
+    l1 = line.new(x1=bar_index - 1, y1=lvl, x2=bar_index, y2=lvl, extend=extend.both, width=line_width, color=sr_color)
+    l2 = line.new(x1=bar_index - 1, y1=lvl2, x2=bar_index, y2=lvl2, extend=extend.both, width=line_width, color=sr_color)
+    line.delete(l1[1])
+    line.delete(l2[1])
+    if not na(lvl)
+        lab = label.new(bar_index + 5, lvl, text=txt, style=label.style_none, textcolor=c_white)
+        label.delete(lab[1])
+    if not na(lvl2)
+        lab2 = label.new(bar_index + 5, lvl2, text=txt, style=label.style_none, textcolor=c_white)
+        label.delete(lab2[1])
+    
+if barstate.islast
+    create_line_label(level1, level2, "ATF")
+    create_line_label(level3, level4, "H4")
+    create_line_label(level5, level6, "H1")
+    create_line_label(level7, level8, "M30")
+    create_line_label(level15m, level15m1, "M15")
+    create_line_label(level5m, level5m1, "M5")
+    create_line_label(level0, level9, "D")
+    create_line_label(levelW_Hi, levelW_Lo, "W")
+    create_line_label(levelM_Hi, levelM_Lo, "M")
