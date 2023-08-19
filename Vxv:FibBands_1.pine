@@ -146,10 +146,10 @@ else if fib_tp == 2
 else if fib_tp == 3
     fb_tp_condition := ta.crossunder(sourceInput, take_profit)
 else if fib_tp == 4
-    if sourceInput >= hf
+    if sourceInput > hf
         fb_tp_condition := true
 else if fib_tp == 5
-    if sourceInput >= cfh
+    if sourceInput > cfh
         fb_tp_condition := true
 else
     fb_tp_condition := false
@@ -170,8 +170,9 @@ closeShortCondition = false
 //if (not longCondition)
 shortCondition := ta.crossunder(sourceInput, hf)
 closeShortCondition := ta.crossunder(sourceInput, lf)
-slShortClose = ta.crossover(sourceInput, lf)
+slShortClose = ta.crossover(sourceInput, hl - dist * 0.886 )
 
+//closeLongCondition =  closeShortCondition
 
 plotshape(longCondition, style=shape.triangleup,color=color.green, location = location.belowbar, size = size.small)
 plotshape(closeLongCondition, style=shape.xcross,color=color.fuchsia, location = location.abovebar, size = size.tiny)
@@ -234,7 +235,7 @@ else if fib_exit_choice == "3-Top-Center Fib Border"
 else if fib_exit_choice == "4-Bottom-Center Fib Border"
     fib_exit_level := cfl
 else if fib_exit_choice == "5-Top-Low Fib Border"
-    fib_exit_level := lf
+    fib_exit_level := hl - dist * 0.169 //lf
 else if fib_exit_choice == "6-Bottom-Low Fib Border"
     fib_exit_level := ll
 
@@ -289,26 +290,26 @@ if tp_choice_fibstoploss and exit_trig_bool
 // EMA Filter
 //░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
-i_emaFilterEnabled = input.bool(defval = false , title = "Enable EMA Filter", tooltip = "Enable if you would like to conditionally have entries incorporate EMA as a filter where source is above/below the EMA line", group ="EMA Filter" ) 
-i_emaLength = input.int(200, title="EMA Length", minval=1, group ="EMA Filter")
+i_emaFilterEnabled = input.bool(defval = false , title = "Enable HMA Filter", tooltip = "Enable if you would like to conditionally have entries incorporate EMA as a filter where source is above/below the EMA line", group ="EMA Filter" ) 
+i_emaLength = input.int(50, title="EMA Length", minval=1, group ="EMA Filter")
 i_emaSource = input.source(close,"EMA Source" , group ="EMA Filter")
 //emaValue = i_emaFilterEnabled ? ta.ema(i_emaSource, i_emaLength) : na
 
 //emaValue =  ta.hma(i_emaSource, i_emaLength)
 
-//emaValue = request.security(syminfo.tickerid, tf_atr, ta.ema(i_emaSource, i_emaLength), barmerge.gaps_off, barmerge.lookahead_on)
+emaValue = request.security(syminfo.tickerid, tf_atr, ta.hma(i_emaSource, i_emaLength), barmerge.gaps_off, barmerge.lookahead_on)
 
 [md,sig,hist] = request.security(syminfo.tickerid, tf_atr, ta.macd(i_emaSource,12,26,9), barmerge.gaps_off, barmerge.lookahead_on)
 
 
-//bool isEMAFilterEnabledAndCloseAboveMA = i_emaFilterEnabled ? i_emaSource > emaValue : true
-//bool isEMAFilterEnabledAndCloseBelowMA = i_emaFilterEnabled ? i_emaSource < emaValue : true
-//colorVal = emaValue[1] > emaValue? color.red : color.rgb(255, 242, 0, 4)
-//plot(emaValue, title="EMA", color=colorVal, linewidth=2)
+bool isEMAFilterEnabledAndCloseAboveMA = i_emaFilterEnabled ? i_emaSource > emaValue : true
+bool isEMAFilterEnabledAndCloseBelowMA = i_emaFilterEnabled ? i_emaSource < emaValue : true
+colorVal = emaValue[1] > emaValue? color.red : color.green
+plot(emaValue, title="EMA", color=colorVal, linewidth=2)
 //bool isEMAFilterEnabledAndCloseAboveMA = i_emaFilterEnabled ? emaValue[1] < emaValue : true
 //bool isEMAFilterEnabledAndCloseBelowMA = i_emaFilterEnabled ? emaValue[1] > emaValue : true
-bool isEMAFilterEnabledAndCloseAboveMA = i_emaFilterEnabled ? sig < md : true
-bool isEMAFilterEnabledAndCloseBelowMA = i_emaFilterEnabled ? sig > md : true
+//bool isEMAFilterEnabledAndCloseAboveMA = i_emaFilterEnabled ? sig < md : true
+//bool isEMAFilterEnabledAndCloseBelowMA = i_emaFilterEnabled ? sig > md : true
 
 
 
