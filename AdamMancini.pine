@@ -5,7 +5,7 @@ indicator(title='AdamManciniLevels', shorttitle='AdamManciniLevels', overlay=tru
 show_debug = false
 debug = ''
 
-
+ 
 
 
 // *************************************************** 
