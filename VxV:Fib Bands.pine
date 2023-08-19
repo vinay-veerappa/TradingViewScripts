@@ -9,7 +9,7 @@ sourceInput = input.source(close, "Source", group="Fibonacci Trade Entry Setting
 
 //sourceTF = input.source(close, "Source", group="Fibonacci Trade Entry Settings")
 //tf = input.timeframe(title="Timeframe", defval="60").  options=['15','60','D', 'W', 'M']
-tf = input.timeframe(defval='240', title="Time Frame Resolution", group="Fibonacci Trade Entry Settings")
+tf = input.timeframe(defval='360', title="Time Frame Resolution", group="Fibonacci Trade Entry Settings")
 per = input(1, title='Fibonacci length', tooltip='Number of bars to look back. Recommended for beginners to set ADX Smoothing and DI Length to the same value as this.', group="Fibonacci Trade Entry Settings")
 //hl = ta.highest(high, per)  //Top-High Fib Border
 //ll = ta.lowest(low, per)    //Top-Low Fib Border
@@ -65,6 +65,32 @@ else if entry_choice == "6-Bottom-Low Fib Border"
     fib_level := ll
 
 
+
+
+
+// Start: WHEN TO BUY LOGIC-----------------------------------------------------
+// Determine if Fib Entry Trigger was met
+e_trig_bool = bool(false)
+var buy_timer = 0 // Used to make sure we do not buy and close on the same candle in the indicator
+
+
+if e_trig == 1
+    e_trig_bool := ta.cross(sourceInput, fib_level) //- syminfo.mintick * 10 
+else if e_trig == 2
+    e_trig_bool := ta.crossover(sourceInput, fib_level)
+else if e_trig == 3
+    e_trig_bool := ta.crossunder(sourceInput, fib_level)
+else if e_trig == 4 // VXV: Alternate entry condition
+    if sourceInput > ll and sourceInput <= lf
+        e_trig_bool := true
+else 
+    e_trig_bool := false
+
+// First Fib Entry Calculation for when to buy
+buy = e_trig_bool
+
+
+
 // Start: Trade Exit Settings---------------------------------------------------
 // Start: Fibonacci Exit--------------------------------------------------------
 fib_tp_trigger = input.string("1-Crosses", title="Take Profit when the source: [cont.]", options=["1-Crosses", "2-Crosses up", "3-Crosses down", "4-Reaches Target Take Profit (%)","5-TopZone","6-AboveCenterZone" ], tooltip=
@@ -110,62 +136,31 @@ trailing = input.float(0.0, title='Trailing deviation. Default= 0.0 (%)', step=0
 
 
 // Fibonacci Take Profit Conditions
-var trade_open = false
+
 fb_tp_condition = false
 
-if trade_open == true
-    if fib_tp == 1
-        fb_tp_condition := ta.cross(sourceInput, take_profit) 
-    else if fib_tp == 2
-        fb_tp_condition := ta.crossover(sourceInput, take_profit) 
-    else if fib_tp == 3
-        fb_tp_condition := ta.crossunder(sourceInput, take_profit)
-    else if fib_tp == 4
-        if sourceInput > hf
-            fb_tp_condition := true
-    else if fib_tp == 5
-        if sourceInput > cfh
-            fb_tp_condition := true
-    else
-        fb_tp_condition := false
+
+if fib_tp == 1
+    fb_tp_condition := ta.cross(sourceInput, take_profit) 
+else if fib_tp == 2
+    fb_tp_condition := ta.crossover(sourceInput, take_profit) 
+else if fib_tp == 3
+    fb_tp_condition := ta.crossunder(sourceInput, take_profit)
+else if fib_tp == 4
+    if sourceInput > hf
+        fb_tp_condition := true
+else if fib_tp == 5
+    if sourceInput > cfh
+        fb_tp_condition := true
+else
+    fb_tp_condition := false
+
 // End: Trade Exit Settings-----------------------------------------------------
 
-
-
-closeLongCondition = false
-// Determine if Fib Stop Loss condition is met
-if fib_tp and fb_tp_condition
-    closeLongCondition :=  fb_tp_condition
+closeLongCondition =  fb_tp_condition
 
 //plotshape(closeLongCondition ==1 , style=shape.xcross,color=color.green, location = location.abovebar)
 // End: Fibonacci Exit----------------------------------------------------------
-
-
-
-
-// Start: WHEN TO BUY LOGIC-----------------------------------------------------
-// Determine if Fib Entry Trigger was met
-e_trig_bool = bool(false)
-var buy_timer = 0 // Used to make sure we do not buy and close on the same candle in the indicator
-
-
-if trade_open == false
-    if e_trig == 1
-        e_trig_bool := ta.cross(sourceInput, fib_level) //- syminfo.mintick * 10 
-    else if e_trig == 2
-        e_trig_bool := ta.crossover(sourceInput, fib_level)
-    else if e_trig == 3
-        e_trig_bool := ta.crossunder(sourceInput, fib_level)
-    else if e_trig == 4 // VXV: Alternate entry condition
-        if sourceInput > ll and sourceInput <= lf
-            e_trig_bool := true
-    else 
-        e_trig_bool := false
-
-
-// First Fib Entry Calculation for when to buy
-buy = e_trig_bool
-trade_open := buy ? true : trade_open
 
 longCondition = buy
 
@@ -176,10 +171,11 @@ closeShortCondition = false
 //if (not longCondition)
 shortCondition := ta.crossunder(sourceInput, hf)
 closeShortCondition := ta.crossunder(sourceInput, lf)
+slShortClose = ta.crossover(sourceInput, hl - dist * 0.886 )
 
 
 plotshape(longCondition, style=shape.triangleup,color=color.green, location = location.belowbar, size = size.small)
-plotshape(closeLongCondition, style=shape.xcross,color=color.yellow, location = location.abovebar, size = size.tiny)
+plotshape(closeLongCondition, style=shape.xcross,color=color.fuchsia, location = location.abovebar, size = size.tiny)
 
 plotshape(shortCondition  , style=shape.triangledown,color=color.red, location = location.abovebar, size = size.small)
 plotshape(closeShortCondition , style=shape.xcross,color=color.red, location = location.belowbar, size = size.tiny)
@@ -239,7 +235,7 @@ else if fib_exit_choice == "3-Top-Center Fib Border"
 else if fib_exit_choice == "4-Bottom-Center Fib Border"
     fib_exit_level := cfl
 else if fib_exit_choice == "5-Top-Low Fib Border"
-    fib_exit_level := lf
+    fib_exit_level := hl - dist * 0.169 //lf
 else if fib_exit_choice == "6-Bottom-Low Fib Border"
     fib_exit_level := ll
 
@@ -263,7 +259,6 @@ else
     exit_trig_bool := false
 
 
-trade_open := exit_trig_bool ? false : trade_open
 slValue := longCondition? lowerATRBand : upperATRBand
 //plot(slValue, title="StopLoss", color=color.white, linewidth=2)
 
@@ -273,6 +268,7 @@ slLongClose = false
 // Determine if Fib Stop Loss condition is met
 if tp_choice_fibstoploss and exit_trig_bool
     slLongClose :=  exit_trig_bool
+
 
 //plotshape(slLongClose , style=shape.cross,color=color.red, location = location.belowbar, size = size.small)
     //strategy.close_all(comment='Fib stop loss @' + str.tostring(strategy.position_avg_price))
@@ -294,26 +290,26 @@ if tp_choice_fibstoploss and exit_trig_bool
 // EMA Filter
 //░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
-i_emaFilterEnabled = input.bool(defval = false , title = "Enable EMA Filter", tooltip = "Enable if you would like to conditionally have entries incorporate EMA as a filter where source is above/below the EMA line", group ="EMA Filter" ) 
-i_emaLength = input.int(200, title="EMA Length", minval=1, group ="EMA Filter")
+i_emaFilterEnabled = input.bool(defval = false , title = "Enable HMA Filter", tooltip = "Enable if you would like to conditionally have entries incorporate EMA as a filter where source is above/below the EMA line", group ="EMA Filter" ) 
+i_emaLength = input.int(50, title="EMA Length", minval=1, group ="EMA Filter")
 i_emaSource = input.source(close,"EMA Source" , group ="EMA Filter")
 //emaValue = i_emaFilterEnabled ? ta.ema(i_emaSource, i_emaLength) : na
 
 //emaValue =  ta.hma(i_emaSource, i_emaLength)
 
-//emaValue = request.security(syminfo.tickerid, tf_atr, ta.ema(i_emaSource, i_emaLength), barmerge.gaps_off, barmerge.lookahead_on)
+emaValue = request.security(syminfo.tickerid, tf_atr, ta.hma(i_emaSource, i_emaLength), barmerge.gaps_off, barmerge.lookahead_on)
 
 [md,sig,hist] = request.security(syminfo.tickerid, tf_atr, ta.macd(i_emaSource,12,26,9), barmerge.gaps_off, barmerge.lookahead_on)
 
 
-//bool isEMAFilterEnabledAndCloseAboveMA = i_emaFilterEnabled ? i_emaSource > emaValue : true
-//bool isEMAFilterEnabledAndCloseBelowMA = i_emaFilterEnabled ? i_emaSource < emaValue : true
-//colorVal = emaValue[1] > emaValue? color.red : color.rgb(255, 242, 0, 4)
-//plot(emaValue, title="EMA", color=colorVal, linewidth=2)
+bool isEMAFilterEnabledAndCloseAboveMA = i_emaFilterEnabled ? i_emaSource > emaValue : true
+bool isEMAFilterEnabledAndCloseBelowMA = i_emaFilterEnabled ? i_emaSource < emaValue : true
+colorVal = emaValue[1] > emaValue? color.red : color.green
+plot(emaValue, title="EMA", color=colorVal, linewidth=2)
 //bool isEMAFilterEnabledAndCloseAboveMA = i_emaFilterEnabled ? emaValue[1] < emaValue : true
 //bool isEMAFilterEnabledAndCloseBelowMA = i_emaFilterEnabled ? emaValue[1] > emaValue : true
-bool isEMAFilterEnabledAndCloseAboveMA = i_emaFilterEnabled ? sig < md : true
-bool isEMAFilterEnabledAndCloseBelowMA = i_emaFilterEnabled ? sig > md : true
+//bool isEMAFilterEnabledAndCloseAboveMA = i_emaFilterEnabled ? sig < md : true
+//bool isEMAFilterEnabledAndCloseBelowMA = i_emaFilterEnabled ? sig > md : true
 
 
 
@@ -361,12 +357,26 @@ isEndPeriodEnabledAndInRange = i_endPeriodEnabled ? i_endPeriodTime >= time : tr
 // Time-Of-Day Window
 // ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 // Inspired from https://www.tradingview.com/script/3BmID7aW-Highlight-Trading-Window-Simple-Hours-Time-of-Day-Filter/
-i_timeFilterEnabled = input.bool(defval = false , title = "Enable Time-Of-Day Window", tooltip = "Limit the time of day for trade execution", group ="Time Window" ) 
-i_timeZone = input.string(title="Select Local Time Zone", defval="GMT-5", options=["GMT-8","GMT-7", "GMT-6", "GMT-5", "GMT-4", "GMT-3", "GMT-2", "GMT-1", "GMT", "GMT+1", "GMT+2",	"GMT+3","GMT+4","GMT+5","GMT+6","GMT+7","GMT+8","GMT+9","GMT+10","GMT+11","GMT+12","GMT+13"], group="Time Window")
-i_betweenTime = input.session('0700-0900',  title = "Time Filter", group="Time Window")   // '0000-0000' is anytime to enter
+i_timeFilterEnabled = input.bool(defval = true , title = "Enable Time-Of-Day Window", tooltip = "Limit the time of day for trade execution", group ="Time Window" ) 
+i_KillzonesEnabled = input.bool(defval = false , title = "Use Killzones", tooltip = "Use London, NY AM and NY PM Killzones", group ="Time Window" ) 
+
+i_timeZone = input.string(title="Select Local Time Zone", defval="GMT-4", options=["GMT-8","GMT-7", "GMT-6", "GMT-5", "GMT-4", "GMT-3", "GMT-2", "GMT-1", "GMT", "GMT+1", "GMT+2",	"GMT+3","GMT+4","GMT+5","GMT+6","GMT+7","GMT+8","GMT+9","GMT+10","GMT+11","GMT+12","GMT+13"], group="Time Window")
+i_betweenTime = input.session('0100-1545',  title = "Time Window", group="Time Window")   // '0000-0000' is anytime to enter
+i_LunchTime = input.session('1200-1300',  title = "Lunch Time Window", group="Time Window")   // '0000-0000' is anytime to enter
+i_AsiaKZTime = input.session('1930-0000',  title = "Asia KZ Time Window", group="Time Window")   // '0000-0000' is anytime to enter
+i_LoKZTime = input.session('0200-0700',  title = "London KZ Time Window", group="Time Window")   // '0000-0000' is anytime to enter
+i_NYAMKZTime = input.session('0800-1100',  title = "NY AM Time Window", group="Time Window")   // '0000-0000' is anytime to enter
+i_NYPMKZTime = input.session('1400-1545',  title = "NY PM Time Window", group="Time Window")   // '0000-0000' is anytime to enter
+
+
 isWithinWindowOfTime(_position) =>                                                      
     currentTimeIsWithinWindowOfTime = not na(time(timeframe.period, _position + ':1234567', i_timeZone))
-bool isTimeFilterEnabledAndInRange = i_timeFilterEnabled ? isWithinWindowOfTime(i_betweenTime) : true
+isTimeFilterEnabledAndInRange = false
+
+if i_KillzonesEnabled
+    isTimeFilterEnabledAndInRange := i_timeFilterEnabled ? isWithinWindowOfTime(i_LoKZTime) or isWithinWindowOfTime(i_NYAMKZTime) or isWithinWindowOfTime(i_NYPMKZTime)   : true
+else 
+    isTimeFilterEnabledAndInRange := i_timeFilterEnabled ? isWithinWindowOfTime(i_betweenTime) and not isWithinWindowOfTime(i_LunchTime) : true
 
 isStartEndPeriodsAndTimeInRange = isStartPeriodEnabledAndInRange and isEndPeriodEnabledAndInRange and isTimeFilterEnabledAndInRange
 
