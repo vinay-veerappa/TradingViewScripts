@@ -1,0 +1,67 @@
+Title,Value
+Trading range,2022-08-19 13:12 — 2023-06-29 20:00
+Backtesting range,2022-08-19 12:57 — 2023-06-29 20:00
+Symbol,CME_MINI:ES1!
+Timeframe,3 minutes
+Chart type,Candles
+Point Value,50
+Currency,USD
+Tick Size,0.25
+Precision,Default
+Source,close
+Time Frame Resolution,180
+Fibonacci length,1
+Buy signals when the source: [cont.],2-Crosses up
+...The Fib line:,5-Top-Low Fib Border
+Take Profit when the source: [cont.],5-TopZone
+...The Fib line:,2-Bottom-High Fib Border
+Target Take Profit (%),3
+Trailing deviation. Default= 0.0 (%),0
+Use Fib-based Stop Loss?,On
+Fib Stop Loss signals when the source: [cont.],3-Crosses down
+...The Fib line:,5-Top-Low Fib Border
+ATR Period,3
+ATR Band Scale Factor,2.5
+ATR Time Frame Resolution,60
+Enable EMA Filter,On
+EMA Length,21
+EMA Source,close
+Enable ADX Filter,Off
+ADX Variant,ORIGINAL
+ADX Smoothing,1
+DI Length,1
+ADX Threshold,25
+Start,On
+,2018-12-31 19:00
+End,On
+,2030-12-30 19:00
+Enable Time-Of-Day Window,On
+Select Local Time Zone,GMT-4
+Time Filter,00:00 — 16:00
+Trade Direction,Long and Short
+Take Profit 4 - Target %,100
+Take Profit 1 - Target %,100
+% Of Position,100
+Take Profit 2 - Target %,100
+% Of Position,100
+Take Profit 3 - Target %,100
+% Of Position,100
+Stop Loss (%),0.1
+Leverage,1
+% of Equity to Stake Per Trade,2
+Alert Syntax Prefix,CRYPTANEX_99FTX_Strategy-Name-Here
+Dashboard Size,Normal
+Performance Summary,On
+Monthly Performance,On
+Initial capital,1000000 USD
+Order size,1 Contracts
+Pyramiding,1 orders
+Commission,0%
+Verify price for limit orders,0 ticks
+Slippage,0 ticks
+Margin for long positions,100%
+Margin for short positions,100%
+Recalculate After order is filled,On
+Recalculate On every tick,On
+Recalculate On bar close,On
+Backtesting precision. Use bar magnifier,On
