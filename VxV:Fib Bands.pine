@@ -65,7 +65,7 @@ else if entry_choice == "6-Bottom-Low Fib Border"
     fib_level := ll
 
 
-
+  
 
 
 // Start: WHEN TO BUY LOGIC-----------------------------------------------------
@@ -174,11 +174,6 @@ closeShortCondition := ta.crossunder(sourceInput, lf)
 slShortClose = ta.crossover(sourceInput, hl - dist * 0.886 )
 
 
-plotshape(longCondition, style=shape.triangleup,color=color.green, location = location.belowbar, size = size.small)
-plotshape(closeLongCondition, style=shape.xcross,color=color.fuchsia, location = location.abovebar, size = size.tiny)
-
-plotshape(shortCondition  , style=shape.triangledown,color=color.red, location = location.abovebar, size = size.small)
-plotshape(closeShortCondition , style=shape.xcross,color=color.red, location = location.belowbar, size = size.tiny)
 
 
 // Start: Fib Based Stop Loss---------------------------------------------------
@@ -398,13 +393,15 @@ var debugLong = array.new_int(1) // Using an array to enable setting of global v
 longConditionCalc = (longCondition and isADXFilterEnabledAndAboveThreshold and isEMAFilterEnabledAndCloseAboveMA)
 shortConditionCalc = (shortCondition and isADXFilterEnabledAndAboveThreshold and isEMAFilterEnabledAndCloseBelowMA)
 
-//plotshape(longConditionCalc and i_tradeDirection != 'Short Only', style=shape.arrowdown,color=color.blue, location = location.bottom)
 
 
-
-if longConditionCalc and i_tradeDirection != 'Short Only' 
-    alert(message=alertSyntaxBase + 'side:long', freq=alert.freq_once_per_bar_close)
-
-if shortConditionCalc and i_tradeDirection != 'Long Only' 
-    alert(message=alertSyntaxBase + 'side:short', freq=alert.freq_once_per_bar_close)
     
+
+plotshape(longCondition and isStartEndPeriodsAndTimeInRange, style=shape.triangleup,color=color.green, location = location.belowbar, size = size.small)
+plotshape(closeLongCondition, style=shape.xcross,color=color.fuchsia, location = location.abovebar, size = size.tiny)
+
+plotshape(shortCondition and isStartEndPeriodsAndTimeInRange , style=shape.triangledown,color=color.red, location = location.abovebar, size = size.small)
+plotshape(closeShortCondition , style=shape.xcross,color=color.red, location = location.belowbar, size = size.tiny)
+
+plotshape(slLongClose , style=shape.flag,color=color.blue, location = location.belowbar, size = size.tiny)
+plotshape(slShortClose , style=shape.flag,color=color.maroon, location = location.belowbar, size = size.tiny)

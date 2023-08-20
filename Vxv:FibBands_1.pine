@@ -24,6 +24,11 @@ cfh = hl - dist * 0.382     //Top-Center Fib Border
 cfl = hl - dist * 0.618     //Bottom-Center Fib Border
 lf = hl - dist * 0.764      //Top-Low Fib Border
 
+sl886 = hl - dist * 0.886
+sl011 = hl - dist * 0.011
+
+slLong = sl011
+slShort = sl886
 //change these values as per trading warz.   bottom should be 0 actually.
 // add a slippage factor of a few cents to the levels also??
 
@@ -170,15 +175,11 @@ closeShortCondition = false
 //if (not longCondition)
 shortCondition := ta.crossunder(sourceInput, hf)
 closeShortCondition := ta.crossunder(sourceInput, lf)
-slShortClose = ta.crossover(sourceInput, hl - dist * 0.886 )
+slShortClose = ta.crossover(sourceInput,slShort)
 
 //closeLongCondition =  closeShortCondition
 
-plotshape(longCondition, style=shape.triangleup,color=color.green, location = location.belowbar, size = size.small)
-plotshape(closeLongCondition, style=shape.xcross,color=color.fuchsia, location = location.abovebar, size = size.tiny)
 
-plotshape(shortCondition  , style=shape.triangledown,color=color.red, location = location.abovebar, size = size.small)
-plotshape(closeShortCondition , style=shape.xcross,color=color.red, location = location.belowbar, size = size.tiny)
 
 
 // Start: Fib Based Stop Loss---------------------------------------------------
@@ -235,7 +236,7 @@ else if fib_exit_choice == "3-Top-Center Fib Border"
 else if fib_exit_choice == "4-Bottom-Center Fib Border"
     fib_exit_level := cfl
 else if fib_exit_choice == "5-Top-Low Fib Border"
-    fib_exit_level := hl - dist * 0.169 //lf
+    fib_exit_level := slLong //lf
 else if fib_exit_choice == "6-Bottom-Low Fib Border"
     fib_exit_level := ll
 
@@ -448,6 +449,14 @@ longConditionCalc = (longCondition and isADXFilterEnabledAndAboveThreshold and i
 shortConditionCalc = (shortCondition and isADXFilterEnabledAndAboveThreshold and isEMAFilterEnabledAndCloseBelowMA)
 
 //plotshape(longConditionCalc and i_tradeDirection != 'Short Only', style=shape.arrowdown,color=color.blue, location = location.bottom)
+plotshape(longConditionCalc and isStartEndPeriodsAndTimeInRange and i_tradeDirection != 'Short Only' and isInLongPosition == false , style=shape.triangleup,color=color.green, location = location.belowbar, size = size.small)
+plotshape(closeLongCondition and isInLongPosition , style=shape.xcross,color=color.fuchsia, location = location.abovebar, size = size.tiny)
+
+plotshape(shortConditionCalc and isStartEndPeriodsAndTimeInRange and i_tradeDirection != 'Long Only' and isInShortPosition == false , style=shape.triangledown,color=color.red, location = location.abovebar, size = size.small)
+plotshape(closeShortCondition and isInShortPosition , style=shape.xcross,color=color.red, location = location.belowbar, size = size.tiny)
+
+plotshape(slLongClose and isInLongPosition, style=shape.flag,color=color.blue, location = location.belowbar, size = size.tiny)
+plotshape(slShortClose and isInShortPosition, style=shape.flag,color=color.maroon, location = location.belowbar, size = size.tiny)
 
 if isStartEndPeriodsAndTimeInRange
 
@@ -491,10 +500,10 @@ if(slShortClose)
     strategy.close('Short', qty_percent=100, comment='SL Short')
 
     // Conditional Closes
-if(closeLongCondition)
+if(closeLongCondition ) //and isEMAFilterEnabledAndCloseBelowMA or isEMAFilterEnabledAndCloseAboveMA
     strategy.close('Long', qty_percent=100, comment='Close Long')
         //array.set(debugLong, 0, 0) // Make background yellow
-if(closeShortCondition)
+if(closeShortCondition ) //and isEMAFilterEnabledAndCloseAboveMA or isEMAFilterEnabledAndCloseBelowMA
     strategy.close('Short', qty_percent=100, comment='Close Short')
 
 
