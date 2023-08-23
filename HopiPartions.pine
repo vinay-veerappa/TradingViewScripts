@@ -1,0 +1,156 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Vinay Veerappa
+// 
+// Hopi Partions and Goldback levels. No AMD and other things used here. It is purely just the Goldbbach levels.
+// 
+// 
+
+//@version=5
+indicator(title='VxV Hopi Levels', shorttitle='Hopi', overlay=true,max_lines_count=500, max_labels_count=500)
+
+
+//left = input.int(defval=5, title="Left Bars", minval=1, group="Support & Resistance")
+//right = input.int(defval=5, title="Right Bars", minval=1, group="Support & Resistance")
+line_width = input.int(defval=1, title="Line Width", minval=1, group="Support & Resistance")
+
+PO3Number =  input.int(27, "PO3 NUmber", options = [3,27,81,243,729,2187], inline ='-2', group = 'Hopi Levels' )
+partions = input.int(defval=0, title="Number of Partions", minval=0, group="Hopi Levels")
+
+
+group_layout                    = 'Layout for Lines'
+
+input_text_size                 = input.int(title='Text Size ', defval=2, group=group_layout, inline='text', minval=1, maxval=5)
+input_text_offset               = input.int(title='Offset ', defval=15, group=group_layout, inline='text')
+
+input_line_size                 = input.int(title='Line Size ', defval=1, group=group_layout, inline='line', minval=1, maxval=5)
+input_line_style                = input.string(title='Style ', defval='Solid', options=['Dashed', 'Dotted', 'Solid'], inline='line', group=group_layout)
+
+input_color_r                   = input.color(title='text colour', defval=color.black, group=group_layout, inline='color_r')
+
+iEnableRB                      = input.bool(title = "Enable Rejection Block", defval = false,group = "GoldBack Lines to Enable")
+iEnableOB                      = input.bool(title = "Enable Order Block", defval = true,group = "GoldBack Lines to Enable")
+iEnableFVG                      = input.bool(title = "Enable FVG", defval = true,group = "GoldBack Lines to Enable")
+iEnableLV                      = input.bool(title = "Enable Liquidity Void", defval = true,group = "GoldBack Lines to Enable")
+iEnableBrk                      = input.bool(title = "Enable Breaker Block", defval = true,group = "GoldBack Lines to Enable")
+iEnableMB                      = input.bool(title = "Enable Mitigation Block", defval = false,group = "GoldBack Lines to Enable")
+
+
+
+getLineStyle(inLineStyle) =>
+    line_style      = switch inLineStyle
+        'Dashed'    =>  line.style_dashed
+        'Dotted'    =>  line.style_dotted
+        'Solid'     =>  line.style_solid
+    line_style
+
+
+getTextSize(inTextSize) =>
+    text_size       = switch inTextSize 
+        1           =>  size.tiny
+        2           =>  size.small
+        3           =>  size.normal
+        4           =>  size.large
+        =>              size.huge
+    text_size
+
+
+var style_line              = getLineStyle(input_line_style)
+var size_text               = getTextSize(input_text_size)
+
+int MAX_LEVELS = partions*2
+var labels_r                = array.new_label(MAX_LEVELS,   na)
+var labels_s                = array.new_label(MAX_LEVELS,   na)
+var lines_r                 = array.new_line(MAX_LEVELS,    na)
+var lines_s                 = array.new_line(MAX_LEVELS,    na)
+
+var label label1 = na
+var label label2 = na
+
+
+create_line_label( lvl, lvl2, txt, colour, lineWidth)=>
+    
+    t1 = timestamp("America/New_York", year, month,dayofmonth, 16, 00, 00)
+    
+    l1 = line.new(x1=bar_index - 100, y1=lvl, x2=bar_index+80, y2=lvl, extend=extend.left, width=lineWidth, color=colour)
+    l2 = line.new(x1=bar_index - 100, y1=lvl2, x2=bar_index+80, y2=lvl2, extend=extend.left, width=lineWidth, color=colour)
+    line.delete(l1[1])
+    line.delete(l2[1])
+    if not na(lvl)
+        lab = label.new(bar_index + 100, lvl, xloc = xloc.bar_time, text=txt, style=label.style_none, textcolor=input_color_r,size =size_text)
+        label.set_xloc(lab, t1, xloc.bar_time)
+        label.delete(lab[1])
+    if not na(lvl2)
+        lab2 = label.new(bar_index + 100, lvl2, text=txt, style=label.style_none, textcolor=input_color_r,size =size_text)
+        label.set_xloc(lab2, t1, xloc.bar_time)
+        label.delete(lab2[1])
+  
+
+create_goldbach_levels(lvl, lvl2, txt)=>
+ 
+    var float h = na
+    var float l = na
+
+   // List of goldbach numbers to use
+    // 0.03,0.97
+    // 0.11,0.89 
+    // 0.17,0.83
+    // 0.29, 0.71
+    // 0.41, 0.59
+    // 0.47 ,0.53
+    // 0.5
+    // non GB 0.35, 0.65, 0.23, 0.77
+    // extensions 1.111, -0.111
+    fib_array = array.from(0,1,0.03,0.97, 0.11,0.89 ,0.17,0.83, 0.29, 0.71, 0.41, 0.59,0.47 ,0.53, 0.5 ,0.5)
+    fib_array_labels = array.from("0","RB","OB","FVG","LV","Brk","MB","0.5")
+    fib_array_colours =array.from( color.black,color.maroon,color.olive,color.orange,color.purple,color.aqua,color.yellow,color.red )
+
+    h := lvl2
+    l := lvl
+    distance = h-l
+
+    int j = 0
+    for i = 0 to (array.size(fib_array_labels) == 0 ? na : array.size(fib_array_labels)-1) by 1
+        create_line_label(l+array.get(fib_array,j)*distance,l+ array.get(fib_array,j+1)*distance,array.get(fib_array_labels,i), array.get(fib_array_colours,i) ,i==0?line_width+1:line_width)
+        j:=j+2
+
+    
+// Calculate the Hopi Partion numbers based on current price
+float currentPrice = close
+
+
+float num = math.floor( currentPrice/PO3Number) * PO3Number
+dealingRangelow = array.new<float>(0) 
+dealingRangeHigh = array.new<float>(0)
+
+float startingPartion = num - (partions * PO3Number)
+// We use `var` to only initialize the table on the first bar.
+//var table Po3Display = table.new(position.top_right, 4, partions*2+1)
+//var table PartionDebug = table.new(position.bottom_right, 1, 3)
+//table.cell(PartionDebug, 0, 0, str.tostring(num))
+//table.cell(PartionDebug, 0, 2, str.tostring(startingPartion))
+
+
+int i = 0
+//for  i = 0 to (partions == 0 ? 1 :(partions*2)-1) by 1
+while i <= (partions == 0 ? 0 :(partions*2))
+    
+    array.push(dealingRangelow ,startingPartion)
+    array.push(dealingRangeHigh ,array.get(dealingRangelow,i)+PO3Number )
+    startingPartion := startingPartion+PO3Number
+
+   // table.cell(Po3Display, 0, i, str.tostring(i))
+   // table.cell(Po3Display, 1, i, str.tostring(array.get(dealingRangelow,i)))
+    //table.cell(Po3Display, 2, i, str.tostring(array.get(dealingRangeHigh,i)))
+    //create_goldbach_levels(array.get(dealingRangelow,i), array.get(dealingRangeHigh,i), str.tostring(array.get(dealingRangelow,i)))
+    //create_line_label(array.get(dealingRangelow,i), array.get(dealingRangeHigh,i), str.tostring(array.get(dealingRangelow,i))+ " "+ str.tostring(array.get(dealingRangeHigh,i)), color.black)
+    //table.cell(Po3Display, 3, i, str.tostring("DRAW "+str.tostring(array.get(dealingRangelow,i))+ " "+ str.tostring(array.get(dealingRangeHigh,i)) ) )
+    i := i+1
+
+////table.cell(PartionDebug, 0, 1, str.tostring(array.size(dealingRangelow)))
+i :=0
+if barstate.islast
+
+    for i = 0 to (array.size(dealingRangelow) == 0 ? na : array.size(dealingRangelow)-1) by 1
+        create_goldbach_levels(array.get(dealingRangelow,i), array.get(dealingRangeHigh,i), str.tostring(array.get(dealingRangelow,i)))
+
+ 
