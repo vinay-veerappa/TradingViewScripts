@@ -1,0 +1,213 @@
+// Mancini Levels, parses Adam Mancini newsletter-formatted support and resistance levels https://tradecompanion.substack.com/
+// format is <level> <(major)>"," <level> <(major)>,<...n> for both support and resistance, with optional "major" designation after each numeric level, comma-separated
+//@version=5
+// Vxv Added Price Labels and configurability for colours and text
+// To do : disable price labels via option
+
+indicator('Mancini Levels', overlay=true, max_lines_count=500,max_labels_count = 500)
+
+supports = input.string(title='Supports', defval='')
+resistances = input.string(title='Resistances', defval='')
+
+group_layout                    = 'Layout for Lines'
+
+input_text_size                 = input.int(title='Text Size ', defval=3, group=group_layout, inline='text', minval=1, maxval=5)
+input_text_offset               = input.int(title='Offset ', defval=15, group=group_layout, inline='text')
+
+input_line_size                 = input.int(title='Line Size ', defval=1, group=group_layout, inline='line', minval=1, maxval=5)
+input_line_style                = input.string(title='Style ', defval='Solid', options=['Dashed', 'Dotted', 'Solid'], inline='line', group=group_layout)
+
+input_color_r                   = input.color(title='Resistance', defval=color.new(color.red, 30), group=group_layout, inline='color_r')
+input_color_r_strong            = input.color(title='Major Resistance', defval=color.new(color.red, 10), group=group_layout, inline='color_r')
+input_color_r_range             = input.color(title='Resistance Range', defval=color.new(color.red, 80), group=group_layout, inline='color_r')
+input_color_r_strong_range      = input.color(title='Major Range', defval=color.new(color.red, 60), group=group_layout, inline='color_r')
+
+
+input_color_s                   = input.color(title='Support', defval=color.new(#4caf4f, 34), group=group_layout, inline='color_s')
+input_color_s_strong            = input.color(title='Major Strong', defval=color.new(color.green,10), group=group_layout, inline='color_s')
+
+input_color_s_range             = input.color(title='Support Range', defval=color.new(#4caf4f, 67), group=group_layout, inline='color_s')
+input_color_s_strong_range      = input.color(title='Major Strong Range', defval=color.new(#4caf4f, 51), group=group_layout, inline='color_s')
+
+
+getTextSize(inTextSize) =>
+    text_size       = switch inTextSize 
+        1           =>  size.tiny
+        2           =>  size.small
+        3           =>  size.normal
+        4           =>  size.large
+        =>              size.huge
+    text_size
+var size_text               = getTextSize(input_text_size)
+
+array<string> supportsParsed = str.split(str.replace_all(supports, ' ', ''), ',')
+array<string> resistancesParsed = str.split(str.replace_all(resistances, ' ', ''), ',')
+
+supportValues = array.new_float()
+majorSupportValues = array.new_float()
+supportRanges = array.new_float()
+isMajorSupportRangeArray = array.new_bool()
+
+resistanceValues = array.new_float()
+majorResistanceValues = array.new_float()
+resistanceRanges = array.new_float()
+isMajorResistanceRangeArray = array.new_bool()
+
+int MAX_LEVELS = 20
+
+var supportValuesLabels = array.new_label(MAX_LEVELS,na)
+var majorSupportValuesLabels = array.new_label(MAX_LEVELS,na)
+var supportRangesLabels = array.new_label(MAX_LEVELS,na)
+var resistanceValuesLabels = array.new_label(MAX_LEVELS,na)
+var majorResistanceValuesLabels = array.new_label(MAX_LEVELS,na)
+var resistanceRangesLabels_top = array.new_label(MAX_LEVELS,na)
+var resistanceRangesLabels_bottom = array.new_label(MAX_LEVELS,na)
+var supportRangesLabels_top = array.new_label(MAX_LEVELS,na)
+var supportRangesLabels_bottom = array.new_label(MAX_LEVELS,na)
+
+var supportValuesLines = array.new_line(MAX_LEVELS,na)
+var majorSupportValuesLines = array.new_line(MAX_LEVELS,na)
+var supportRangesLines = array.new_line(MAX_LEVELS,na)
+var resistanceValuesLines = array.new_line(MAX_LEVELS,na)
+var majorResistanceValuesLines = array.new_line(MAX_LEVELS,na)
+var resistanceRangesLines_top = array.new_line(MAX_LEVELS,na)
+var resistanceRangesLines_bottom = array.new_line(MAX_LEVELS,na)
+var supportRangesLines_top = array.new_line(MAX_LEVELS,na)
+var supportRangesLines_bottom = array.new_line(MAX_LEVELS,na)
+
+
+parse_range(rangeToParse, isMajor) =>
+    rangeArray = str.split(rangeToParse, '-')
+    topOfRange = str.tonumber(rangeArray.get(0))
+    float bottomOfRange = na
+    bottomToken = rangeArray.get(1)
+    if(str.length(bottomToken) == 4)
+        bottomOfRange := str.tonumber((bottomToken))
+    else
+        bottomOfRange := str.tonumber(str.substring(rangeArray.get(0), 0, 2) + rangeArray.get(1))
+    [topOfRange, bottomOfRange, isMajor]
+
+if array.size(supportsParsed) > 0
+    for currentElement in supportsParsed
+        if str.contains(currentElement, '(major)')
+            if str.contains(currentElement, '-')
+                [top, bottom, isMajorSupport] = parse_range(str.replace(currentElement,'(major)', '', 0), true)
+                supportRanges.push(top)
+                supportRanges.push(bottom)
+                isMajorSupportRangeArray.push(isMajorSupport)
+            else
+                majorSupportValues.push(str.tonumber(str.replace(currentElement,'(major)', '', 0)))
+        else
+            if str.contains(currentElement, '-')
+                [top, bottom, isMajorSupport] = parse_range(currentElement, false)
+                supportRanges.push(top)
+                supportRanges.push(bottom)
+                isMajorSupportRangeArray.push(isMajorSupport)
+            else    
+                supportValues.push(str.tonumber(currentElement))
+
+if array.size(resistancesParsed) > 0
+    for currentElement in resistancesParsed
+        if str.contains(currentElement, '(major)')
+            if str.contains(currentElement, '-')
+                [top, bottom, isMajorResistance] = parse_range(str.replace(currentElement,'(major)', '', 0), true)
+                resistanceRanges.push(top)
+                resistanceRanges.push(bottom)
+                isMajorResistanceRangeArray.push(isMajorResistance)
+            else
+                majorResistanceValues.push(str.tonumber(str.replace(currentElement,'(major)', '', 0)))
+        else
+            if str.contains(currentElement, '-')
+                [top, bottom, isMajorResistance] = parse_range(currentElement, false)
+                resistanceRanges.push(top)
+                resistanceRanges.push(bottom)
+                isMajorResistanceRangeArray.push(isMajorResistance)
+            else
+                resistanceValues.push(str.tonumber(currentElement))
+
+if barstate.isconfirmed
+    for i = 0 to array.size(majorResistanceValues) - 1 by 1
+        level = array.get(majorResistanceValues, i)
+
+        line.delete(array.get(majorResistanceValuesLines, i))
+        array.set(majorResistanceValuesLines,i, level != 0 ? line.new(bar_index, level, bar_index[1000], level, extend=extend.both, width=2, color=input_color_r_strong, style=line.style_solid) : line(na))
+
+        label.delete(array.get(majorResistanceValuesLabels, i))
+        array.set(majorResistanceValuesLabels,i, level != 0 ? label.new(bar_index + input_text_offset, level, text=str.tostring(level), style=label.style_none, textcolor=input_color_r_strong,size =size_text) : label(na))
+
+    for i = 0 to array.size(resistanceValues) - 1 by 1
+        level = array.get(resistanceValues, i)
+        
+        line.delete(array.get(resistanceValuesLines, i))
+        array.set(resistanceValuesLines,i, level != 0 ? line.new(bar_index, level, bar_index[1000], level, extend=extend.both, width=2, color=input_color_r, style=line.style_solid) : line(na))
+
+        label.delete(array.get(resistanceValuesLabels, i))
+        array.set(resistanceValuesLabels,i, level != 0 ? label.new(bar_index + input_text_offset, level, text=str.tostring(level), style=label.style_none, textcolor=input_color_r_strong,size =size_text) : label(na))
+
+
+
+
+    for i = 0 to array.size(majorSupportValues) - 1 by 1
+        level = array.get(majorSupportValues, i)
+        //line.new(bar_index, level, bar_index[1000], level, extend=extend.both, width=2, color= input_color_s , style=line.style_solid)
+
+        line.delete(array.get(majorSupportValuesLines, i))
+        array.set(majorSupportValuesLines,i, level != 0 ? line.new(bar_index, level, bar_index[1000], level, extend=extend.both, width=2, color=input_color_s_strong, style=line.style_solid) : line(na))
+
+        label.delete(array.get(majorSupportValuesLabels, i))
+        array.set(majorSupportValuesLabels,i, level != 0 ? label.new(bar_index + input_text_offset, level, text=str.tostring(level), style=label.style_none, textcolor=input_color_s_strong,size =size_text) : label(na))
+
+
+    for i = 0 to array.size(supportValues) - 1 by 1
+        level = array.get(supportValues, i)
+        //line.new(bar_index, level, bar_index[1000], level, extend=extend.both, width=1, color=input_color_r, style=line.style_dashed)
+        line.delete(array.get(supportValuesLines, i))
+        array.set(supportValuesLines,i, level != 0 ? line.new(bar_index, level, bar_index[1000], level, extend=extend.both, width=2, color=input_color_s, style=line.style_solid) : line(na))
+
+        label.delete(array.get(supportValuesLabels, i))
+        array.set(supportValuesLabels,i, level != 0 ? label.new(bar_index + input_text_offset, level, text=str.tostring(level), style=label.style_none, textcolor=input_color_s_strong,size =size_text) : label(na))
+
+
+
+    for i = 0 to array.size(supportRanges) - 2 by 2
+        topLevel = array.get(supportRanges, i)
+        bottomLevel = array.get(supportRanges, i+1)
+        isMajorSupport = array.get(isMajorSupportRangeArray, i/2)
+        majorSupportColor = input_color_s_strong_range //color.new(#2fc23e, 79)
+        minorSupportColor = input_color_s_range //color.new(#dada4d, 90)
+        //topLine = line.new(bar_index, topLevel, bar_index[1000], topLevel, extend=extend.both, width=1, color=color.new(color.yellow, 50), style=line.style_dotted)
+        //bottomLine = line.new(bar_index, bottomLevel, bar_index[1000], bottomLevel, extend=extend.both, width=1, color=color.new(color.yellow, 50), style=line.style_dotted)
+        line.delete(array.get(supportRangesLines_top, i))
+        array.set(supportRangesLines_top,i, topLevel != 0 ? line.new(bar_index, topLevel, bar_index[1000], topLevel, extend=extend.both, width=2, color=(isMajorSupport ? majorSupportColor : minorSupportColor), style=line.style_solid) : line(na))
+        label.delete(array.get(supportRangesLabels_top, i))
+        array.set(supportRangesLabels_top,i, topLevel != 0 ? label.new(bar_index + input_text_offset, topLevel, text=str.tostring(topLevel), style=label.style_none, textcolor=input_color_s_strong ,size =size_text) : label(na))
+
+        line.delete(array.get(supportRangesLines_bottom, i))
+        array.set(supportRangesLines_bottom,i, bottomLevel != 0 ? line.new(bar_index, bottomLevel, bar_index[1000], bottomLevel, extend=extend.both, width=2, color=(isMajorSupport ? majorSupportColor : minorSupportColor), style=line.style_solid) : line(na))
+        label.delete(array.get(supportRangesLabels_bottom, i))
+        array.set(supportRangesLabels_bottom,i, bottomLevel != 0 ? label.new(bar_index + input_text_offset, bottomLevel, text=str.tostring(bottomLevel), style=label.style_none, textcolor= input_color_s_strong,size =size_text) : label(na))
+
+        rangeFill = linefill.new(array.get(supportRangesLines_top, i), array.get(supportRangesLines_bottom, i), color=(isMajorSupport ? majorSupportColor : minorSupportColor))
+        
+    for i = 0 to array.size(resistanceRanges) - 2 by 2
+        topLevel = array.get(resistanceRanges, i)
+        bottomLevel = array.get(resistanceRanges, i+1)
+        isMajorResistance = array.get(isMajorResistanceRangeArray, i/2)
+        majorResistanceColor = input_color_r_strong_range// color.rgb(239, 44, 83, 95)
+        minorResistanceColor = input_color_r_range //color.new(#ff7852, 95)
+        //topLine = line.new(bar_index, topLevel, bar_index[1000], topLevel, extend=extend.both, width=1, color=color.new(color.yellow, 50), style=line.style_dotted)
+        //bottomLine = line.new(bar_index, bottomLevel, bar_index[1000], bottomLevel, extend=extend.both, width=1, color=color.new(color.yellow, 50), style=line.style_dotted)
+        line.delete(array.get(resistanceRangesLines_top, i))
+        array.set(resistanceRangesLines_top,i, topLevel != 0 ? line.new(bar_index, topLevel, bar_index[1000], topLevel, extend=extend.both, width=2, color=(isMajorResistance ? majorResistanceColor : minorResistanceColor), style=line.style_solid) : line(na))
+        label.delete(array.get(resistanceRangesLabels_top, i))
+        array.set(resistanceRangesLabels_top,i, topLevel != 0 ? label.new(bar_index + input_text_offset, topLevel, text=str.tostring(topLevel), style=label.style_none, textcolor=input_color_r_strong ,size =size_text) : label(na))
+
+        line.delete(array.get(resistanceRangesLines_bottom, i))
+        array.set(resistanceRangesLines_bottom,i, bottomLevel != 0 ? line.new(bar_index, bottomLevel, bar_index[1000], bottomLevel, extend=extend.both, width=2, color=(isMajorResistance ? majorResistanceColor : minorResistanceColor), style=line.style_solid) : line(na))
+        label.delete(array.get(resistanceRangesLabels_bottom, i))
+        array.set(resistanceRangesLabels_bottom,i, bottomLevel != 0 ? label.new(bar_index + input_text_offset, bottomLevel, text=str.tostring(bottomLevel), style=label.style_none, textcolor=input_color_r_strong ,size =size_text) : label(na))
+
+        rangeFill = linefill.new(array.get(resistanceRangesLines_top, i), array.get(resistanceRangesLines_bottom, i), color=(isMajorResistance ? majorResistanceColor : minorResistanceColor))
+
+
+
