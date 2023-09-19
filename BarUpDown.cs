@@ -159,9 +159,9 @@ namespace NinjaTrader.NinjaScript.Strategies
 			
 			 // SHORT CONDITION
 			if ((Open[0] > Close[0])
-				 && (Open[0] > Open[1]) 
-				 && (Open[0] > Open[2])
-				// && (Open[1] > Open[2])
+				 && (Open[0] < Open[1]) 
+				 && (Open[0] < Open[2])
+				// && (Open[1] < Open[2])
 				 //&& (Open[0] < Close[3])
 				 && IsFalling(HMA(LongTermMAPeriod))
 				)
