@@ -33,7 +33,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 		private double	initialBreakEven	= 0; 		// Default setting for where you set the breakeven
 		private double 	previousPrice		= 0;		// previous price used to calculate trailing stop
 		private double 	newPrice			= 0;		// Default setting for new price used to calculate trailing stop
-		private HMA hmaHigh;
+		private 		HMA hmaHigh;
+		private double	adxValue 			= 0 ;
 		
 		protected override void OnStateChange()
 		{
@@ -59,13 +60,16 @@ namespace NinjaTrader.NinjaScript.Strategies
 				// Disable this property for performance gains in Strategy Analyzer optimizations
 				// See the Help Guide for additional information
 				IsInstantiatedOnEachOptimizationIteration	= true;
-				LongTermMAPeriod					= 81;
-				Use3Candles					= true;
-				EnableTimeOfDay					= true;
-				Startime						= DateTime.Parse("23:00", System.Globalization.CultureInfo.InvariantCulture);
-				EndTime						= DateTime.Parse("13:00", System.Globalization.CultureInfo.InvariantCulture);
+				LongTermMAPeriod							= 81;
+				Use3Candles									= true;
+				EnableTimeOfDay								= true;
+				Startime									= DateTime.Parse("23:00", System.Globalization.CultureInfo.InvariantCulture);
+				EndTime										= DateTime.Parse("13:00", System.Globalization.CultureInfo.InvariantCulture);
 
-				UseATRforStopLoss					= false;
+				UseATRforStopLoss							= false;
+				adxPeriod									= 14;
+				useAdx										= false ;
+				adxThreshold								= 25 ;
 	
 				
 				//breakEvenTicks		= 4;		// Default setting for ticks needed to acheive before stop moves to breakeven		
@@ -91,6 +95,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 				hmaHigh = HMA(LongTermMAPeriod);
 				//hmaLow = HMA(50);
 				AddChartIndicator(hmaHigh);
+				//adxValue = useAdx ? (ADX(adxPeriod)[1]) : 0 ;
+				
 			}
 		}
 		
@@ -136,9 +142,12 @@ namespace NinjaTrader.NinjaScript.Strategies
 				// Exit all positions at 12:55 PST
 			}
 
-			if (CurrentBars[0] < 2)
+			if (CurrentBars[0] < 20)
 				return;
+			
+			adxValue = useAdx ? (ADX(adxPeriod)[1]) : 0 ;
 
+			//adxValue = ADX(adxPeriod)[1]; 
 			
 			// Resets the stop loss to the original value when all positions are closed
 			switch (Position.MarketPosition)
@@ -242,6 +251,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 				//&& (Close[1] > Close[3])
 				&& IsRising(HMA(LongTermMAPeriod))
 				&& (Position.MarketPosition != MarketPosition.Long) 
+				&& (useAdx ?adxValue > adxThreshold:true)
 				)
 			{
 				//if (Position.MarketPosition == MarketPosition.Short) ExitShort();
@@ -273,6 +283,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 				 //&& (Open[0] < Close[3])
 				 && IsFalling(HMA(LongTermMAPeriod))
 				&& (Position.MarketPosition != MarketPosition.Short) 
+				&& (useAdx ?adxValue > adxThreshold:true)
 				)
 			{
 				//if (Position.MarketPosition == MarketPosition.Long) ExitLong();
@@ -289,9 +300,27 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 		#region Properties
 		[NinjaScriptProperty]
-		[Range(1, int.MaxValue)]
+		[Range(3, int.MaxValue)]
 		[Display(Name="LongTermMAPeriod", Description="Long term MA for trend detection", Order=1, GroupName="Parameters")]
 		public int LongTermMAPeriod
+		{ get; set; }
+		
+		[NinjaScriptProperty]
+		[Range(1, int.MaxValue)]
+		[Display(Name="ADX Period Length", Description="ADX Period Length", Order=1, GroupName="Parameters")]
+		public int adxPeriod
+		{ get; set; }
+		
+		[NinjaScriptProperty]
+		[Display(Name="Enable ADX", Description="Use ADX to restrict trades during low volatality", Order=2, GroupName="Parameters")]
+		public bool useAdx
+		{ get; set; }
+		
+
+		[NinjaScriptProperty]
+		[Range(1, 30)]
+		[Display(Name="ADX Threshold", Description="ADX Threshold to restrict trades during low volatality", Order=2, GroupName="Parameters")]
+		public double adxThreshold
 		{ get; set; }
 
 		[NinjaScriptProperty]
