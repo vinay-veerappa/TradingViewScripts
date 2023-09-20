@@ -78,7 +78,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 				
 			else if (State == State.Configure)
 			{
-				//AddHeikenAshi(BarsPeriodType.Minute,2);
+				AddDataSeries(BarsPeriodType.Minute,2);
 				SetStopLoss(CalculationMode.Ticks, stopLossTicks);
 				SetProfitTarget(CalculationMode.Ticks, profitTargetTicks);
 			}
@@ -97,14 +97,14 @@ namespace NinjaTrader.NinjaScript.Strategies
 		private void FillLongEntry1()
 		{
 			Print("Entering Long");
-			EnterLong(Convert.ToInt32(DefaultQuantity), "");
+			EnterLong(1,Convert.ToInt32(DefaultQuantity), "Long");
 			BarTraded = CurrentBar;
 		}
 		
 		private void FillShortEntry1()
 		{
 			Print("Entering Short");	
-			EnterShort(Convert.ToInt32(DefaultQuantity), "");
+			EnterShort(1,Convert.ToInt32(DefaultQuantity), "Short");
 			BarTraded = CurrentBar;
 		}  
 		
@@ -117,65 +117,29 @@ namespace NinjaTrader.NinjaScript.Strategies
 			
 			bool validTimeforTrading = false;
 			
-			// Exit all positions at 12:55 PST
-			if (ToTime(Time[0]) >= 130000)
+			if (ToTime(Time[0]) >= 125500 && ToTime(Time[0]) <= 130000)
 			{
+				Print("Exiting Positions at End of Session");
 				if (Position.MarketPosition == MarketPosition.Long)
 					ExitLong();
 				if (Position.MarketPosition == MarketPosition.Short)
 					ExitShort();
-			}
+			}			
 			
 			if(ToTime(Time[0]) <= 200000 && ToTime(Time[0]) >= 125000)
 			{
 				// Outside Trading hours
+				// Need to figure out how to input this data properly so that it can be set different for different Symbols
+				// Also need to add option of Killzones etc...
+				// Left this open to test trades on simulator
 				//return;
+				// Exit all positions at 12:55 PST
 			}
 
 			if (CurrentBars[0] < 2)
 				return;
 
-			 //LONG CONDITION
-			// Check Three Bars 
-			// can also check for displacement etc??? sometimes that is good for exits
-			if ( (Close[0] > Open[0])
-				&& (Close[0] > Close[1])
-				&& (Close[0] > Close[2])
-				//&& (Close[1] > Close[3])
-				&& IsRising(HMA(LongTermMAPeriod))
-				)
-			{
-				if (Position.MarketPosition == MarketPosition.Short) ExitShort();
-					
-				//longCondition = true ;
-				Draw.ArrowUp(this,"Long Entry"+Low[0].ToString(), true, 0,Low[0]-TickSize, Brushes.Gold);
-					//EnterLongStopLimit(EntriesPerDirection,High[0] + 2 * TickSize, High[0]- 10* TickSize, "longCondition");
-					//EnterLong();
-				FillLongEntry1();
-					//SetStopLoss(CalculationMode.Ticks, stopLossTicks);
-				SetProfitTarget(CalculationMode.Ticks,profitTargetTicks);
-				SetStopLoss(CalculationMode.Ticks, stopLossTicks);
-			}
 			
-			 // SHORT CONDITION
-			if ((Open[0] > Close[0])
-				 && (Open[0] < Open[1]) 
-				 && (Open[0] < Open[2])
-				// && (Open[1] < Open[2])
-				 //&& (Open[0] < Close[3])
-				 && IsFalling(HMA(LongTermMAPeriod))
-				)
-			{
-				if (Position.MarketPosition == MarketPosition.Long) ExitLong();
-					
-				//longCondition = true ;
-				Draw.ArrowDown(this,"Short Entry"+Low[0].ToString(), true, 0,High[0] + TickSize, Brushes.Blue);
-
-				FillShortEntry1();
-					//SetStopLoss(CalculationMode.Ticks, stopLossTicks);
-				SetProfitTarget(CalculationMode.Ticks,profitTargetTicks);
-				SetStopLoss(CalculationMode.Ticks, stopLossTicks);
-			}
 			// Resets the stop loss to the original value when all positions are closed
 			switch (Position.MarketPosition)
             {
@@ -189,7 +153,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 						&& previousPrice == 0 )
                     {
 						initialBreakEven = Position.AveragePrice + plusBreakEven * TickSize;
-                        //SetStopLoss(CalculationMode.Price, initialBreakEven);
+                        SetStopLoss(CalculationMode.Price, initialBreakEven);
 						previousPrice = Position.AveragePrice;
 						Print("previousPrice = "+previousPrice);
                     }
@@ -199,7 +163,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 						)
 					{
 						newPrice = previousPrice + trailStepTicks * TickSize;
-						//SetStopLoss(CalculationMode.Price, newPrice);
+						SetStopLoss(CalculationMode.Price, newPrice);
 						previousPrice = newPrice;
 						Print("previousPrice = "+previousPrice);
 					}
@@ -214,6 +178,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 					if(IsFalling( HMA(LongTermMAPeriod)))
 					{
 						//closeLongCondition = true ;
+						Print("Exiting Longs with MA moving Falling");
 						Draw.Diamond(this,"closeLongCondition"+Low[0].ToString(), true, 0,High[0] + TickSize, Brushes.DeepPink);
 						ExitLong();
 					}
@@ -234,7 +199,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 						&& previousPrice == 0)
                     {
 						initialBreakEven = Position.AveragePrice - plusBreakEven * TickSize;
-                        //SetStopLoss(CalculationMode.Price, initialBreakEven);
+                        SetStopLoss(CalculationMode.Price, initialBreakEven);
 						previousPrice = Position.AveragePrice;
 						Print("previousPrice = "+previousPrice);
                     }
@@ -253,6 +218,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 					if(IsRising( HMA(LongTermMAPeriod))
 					    )
 					{
+						Print("Exiting Shorts with MA moving Rising");
 						//closeShortCondition = true ;
 						Draw.Diamond(this,"CloseShortEntry"+Low[0].ToString(), true, 0,Low[0] - TickSize, Brushes.Green);
 						ExitShort();
@@ -263,6 +229,61 @@ namespace NinjaTrader.NinjaScript.Strategies
                 default:
 					//autoStopA900Traded = false;
                     break;
+			}
+			
+			 //LONG CONDITION
+			// Check Three Bars 
+			// can also check for displacement etc??? sometimes that is good for exits
+			//	Need to check for additional entry conditions to validate entry or to eliminate consolidations/chop
+			
+			if ( (Close[0] > Open[0])
+				&& (Close[0] > Close[1])
+				&& (Close[0] > Close[2])
+				//&& (Close[1] > Close[3])
+				&& IsRising(HMA(LongTermMAPeriod))
+				&& (Position.MarketPosition != MarketPosition.Long) 
+				)
+			{
+				//if (Position.MarketPosition == MarketPosition.Short) ExitShort();
+					
+				//longCondition = true ;
+				Draw.ArrowUp(this,"Long Entry"+Low[0].ToString(), true, 0,Low[0]-TickSize, Brushes.Gold);
+					//EnterLongStopLimit(EntriesPerDirection,High[0] + 2 * TickSize, High[0]- 10* TickSize, "longCondition");
+					//EnterLong();
+				FillLongEntry1();
+					//SetStopLoss(CalculationMode.Ticks, stopLossTicks);
+				SetProfitTarget(CalculationMode.Ticks,profitTargetTicks);
+				SetStopLoss(CalculationMode.Ticks, stopLossTicks);
+			}
+			
+			// EXIT CRITERIA to IMPLEMENT
+			//	When two Candles go in the opposite direction. (Check if this will reduce the losses 
+			//	Or look at SD of 2.5 -> 4.5 for exit
+			//	USE ATR for trailing or PSAR
+			// 	Use STDDEV of HMA to validate trade entry. Should reduce the number of trades in consolidation or low volume
+			//	Antoher way is to do an EMA of Volume to validate need to enter trade
+			// 	Cross over of Fast/Slow HMA or EMA will be good to exit quickly
+			
+			
+			 // SHORT CONDITION
+			if ((Open[0] > Close[0])
+				 && (Open[0] < Open[1]) 
+				 && (Open[0] < Open[2])
+				// && (Open[1] > Open[2])
+				 //&& (Open[0] < Close[3])
+				 && IsFalling(HMA(LongTermMAPeriod))
+				&& (Position.MarketPosition != MarketPosition.Short) 
+				)
+			{
+				//if (Position.MarketPosition == MarketPosition.Long) ExitLong();
+					
+				//longCondition = true ;
+				Draw.ArrowDown(this,"Short Entry"+Low[0].ToString(), true, 0,High[0] + TickSize, Brushes.Blue);
+
+				FillShortEntry1();
+					//SetStopLoss(CalculationMode.Ticks, stopLossTicks);
+				SetProfitTarget(CalculationMode.Ticks,profitTargetTicks);
+				SetStopLoss(CalculationMode.Ticks, stopLossTicks);
 			}
 		}
 
