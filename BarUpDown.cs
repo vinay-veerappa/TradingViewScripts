@@ -33,8 +33,10 @@ namespace NinjaTrader.NinjaScript.Strategies
 		private double	initialBreakEven	= 0; 		// Default setting for where you set the breakeven
 		private double 	previousPrice		= 0;		// previous price used to calculate trailing stop
 		private double 	newPrice			= 0;		// Default setting for new price used to calculate trailing stop
-		private 		HMA hmaHigh;
+		private 		HMA hmaHigh			;
+		private 		HMA hmaSlow			;
 		private double	adxValue 			= 0 ;
+		private int		hmaLookBackPeriod	= 1 ;
 		
 		protected override void OnStateChange()
 		{
@@ -61,6 +63,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 				// See the Help Guide for additional information
 				IsInstantiatedOnEachOptimizationIteration	= true;
 				LongTermMAPeriod							= 81;
+				ShortTermMAPeriod							= 21;
 				Use3Candles									= true;
 				EnableTimeOfDay								= true;
 				Startime									= DateTime.Parse("23:00", System.Globalization.CultureInfo.InvariantCulture);
@@ -74,7 +77,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 				
 				//breakEvenTicks		= 4;		// Default setting for ticks needed to acheive before stop moves to breakeven		
 				//plusBreakEven		= 2; 		// Default setting for amount of ticks past breakeven to actually breakeven
-				profitTargetTicks	= 80;		// Default setting for how many Ticks away from AvgPrice is profit target
+				profitTargetTicks	= 40;		// Default setting for how many Ticks away from AvgPrice is profit target
 		        stopLossTicks		= 40;		// Default setting for stoploss. Ticks away from AvgPrice		
 				trailProfitTrigger	= 20;		// 8 Default Setting for trail trigger ie the number of ticks movede after break even befor activating TrailStep
 				trailStepTicks		= 8;		// 2 Default setting for number of ticks advanced in the trails - take into consideration the barsize as is calculated/advanced next bar
@@ -95,6 +98,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 				hmaHigh = HMA(LongTermMAPeriod);
 				//hmaLow = HMA(50);
 				AddChartIndicator(hmaHigh);
+				AddChartIndicator( HMA(ShortTermMAPeriod));
 				//adxValue = useAdx ? (ADX(adxPeriod)[1]) : 0 ;
 				
 			}
@@ -130,9 +134,10 @@ namespace NinjaTrader.NinjaScript.Strategies
 					ExitLong();
 				if (Position.MarketPosition == MarketPosition.Short)
 					ExitShort();
+				return;
 			}			
 			
-			if(ToTime(Time[0]) <= 200000 && ToTime(Time[0]) >= 125000)
+			if(ToTime(Time[0]) <= 200000 && ToTime(Time[0]) >= 130000)
 			{
 				// Outside Trading hours
 				// Need to figure out how to input this data properly so that it can be set different for different Symbols
@@ -146,6 +151,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 				return;
 			
 			adxValue = useAdx ? (ADX(adxPeriod)[1]) : 0 ;
+			//hmaSlow = HMA(ShortTermMAPeriod);
 
 			//adxValue = ADX(adxPeriod)[1]; 
 			
@@ -184,7 +190,9 @@ namespace NinjaTrader.NinjaScript.Strategies
 						
 					}
 					//Long entry will close when price (Close) goes over HF
-					if(IsFalling( HMA(LongTermMAPeriod)))
+					if(IsFalling( HMA(LongTermMAPeriod))
+						|| CrossBelow( HMA(ShortTermMAPeriod),HMA(LongTermMAPeriod), hmaLookBackPeriod )
+						)
 					{
 						//closeLongCondition = true ;
 						Print("Exiting Longs with MA moving Falling");
@@ -225,6 +233,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 					
 					//Short entry will close when price (Close) goes over LF
 					if(IsRising( HMA(LongTermMAPeriod))
+						|| CrossAbove( HMA(ShortTermMAPeriod),HMA(LongTermMAPeriod), hmaLookBackPeriod )
 					    )
 					{
 						Print("Exiting Shorts with MA moving Rising");
@@ -244,10 +253,10 @@ namespace NinjaTrader.NinjaScript.Strategies
 			// Check Three Bars 
 			// can also check for displacement etc??? sometimes that is good for exits
 			//	Need to check for additional entry conditions to validate entry or to eliminate consolidations/chop
-			
-			if ( (Close[0] > Open[0])
-				&& (Close[0] > Close[1])
-				&& (Close[0] > Close[2])
+			if ( (NBarsUp(3, true, true, true)[0] == 1) 
+			//if ( (Close[0] > Open[0])
+			//	&& (Close[0] > Close[1])
+			//	&& (Close[0] > Close[2])
 				//&& (Close[1] > Close[3])
 				&& IsRising(HMA(LongTermMAPeriod))
 				&& (Position.MarketPosition != MarketPosition.Long) 
@@ -276,9 +285,10 @@ namespace NinjaTrader.NinjaScript.Strategies
 			
 			
 			 // SHORT CONDITION
-			if ((Open[0] > Close[0])
-				 && (Open[0] < Open[1]) 
-				 && (Open[0] < Open[2])
+			if ( (NBarsDown(3, true, true, true)[0] == 1) 
+			//if ((Open[0] > Close[0])
+			//	 && (Open[0] < Open[1]) 
+			//	 && (Open[0] < Open[2])
 				// && (Open[1] > Open[2])
 				 //&& (Open[0] < Close[3])
 				 && IsFalling(HMA(LongTermMAPeriod))
@@ -306,71 +316,78 @@ namespace NinjaTrader.NinjaScript.Strategies
 		{ get; set; }
 		
 		[NinjaScriptProperty]
-		[Range(1, int.MaxValue)]
-		[Display(Name="ADX Period Length", Description="ADX Period Length", Order=1, GroupName="Parameters")]
-		public int adxPeriod
+		[Range(3, int.MaxValue)]
+		[Display(Name="ShortTermMAPeriod", Description="Short term MA for trend detection", Order=2, GroupName="Parameters")]
+		public int ShortTermMAPeriod
+		{ get; set; }
+		
+		
+		[NinjaScriptProperty]
+		[Display(Name="Enable ADX", Description="Use ADX to restrict trades during low volatality", Order=3, GroupName="Parameters")]
+		public bool useAdx
 		{ get; set; }
 		
 		[NinjaScriptProperty]
-		[Display(Name="Enable ADX", Description="Use ADX to restrict trades during low volatality", Order=2, GroupName="Parameters")]
-		public bool useAdx
+		[Range(1, int.MaxValue)]
+		[Display(Name="ADX Period Length", Description="ADX Period Length", Order=4, GroupName="Parameters")]
+		public int adxPeriod
 		{ get; set; }
 		
 
 		[NinjaScriptProperty]
 		[Range(1, 30)]
-		[Display(Name="ADX Threshold", Description="ADX Threshold to restrict trades during low volatality", Order=2, GroupName="Parameters")]
+		[Display(Name="ADX Threshold", Description="ADX Threshold to restrict trades during low volatality", Order=5, GroupName="Parameters")]
 		public double adxThreshold
 		{ get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name="Use3Candles", Description="Use 2 or 3 candles for confirmation", Order=2, GroupName="Parameters")]
+		[Display(Name="Use3Candles", Description="Use 2 or 3 candles for confirmation", Order=6, GroupName="Parameters")]
 		public bool Use3Candles
 		{ get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name="EnableTimeOfDay", Description="Restrict trading during certain times", Order=3, GroupName="Parameters")]
+		[Display(Name="EnableTimeOfDay", Description="Restrict trading during certain times", Order=7, GroupName="Parameters")]
 		public bool EnableTimeOfDay
 		{ get; set; }
 
 		[NinjaScriptProperty]
 		[PropertyEditor("NinjaTrader.Gui.Tools.TimeEditorKey")]
-		[Display(Name="Startime", Description="Start time for executions", Order=4, GroupName="Parameters")]
+		[Display(Name="Startime", Description="Start time for executions", Order=8, GroupName="Parameters")]
 		public DateTime Startime
 		{ get; set; }
 
 		[NinjaScriptProperty]
 		[PropertyEditor("NinjaTrader.Gui.Tools.TimeEditorKey")]
-		[Display(Name="EndTime", Description="End time for trades", Order=5, GroupName="Parameters")]
+		[Display(Name="EndTime", Description="End time for trades", Order=9, GroupName="Parameters")]
 		public DateTime EndTime
 		{ get; set; }
 
 		[NinjaScriptProperty]
 		[Range(1, int.MaxValue)]
-		[Display(Name="TakeProfitTicks", Description="What is the min Profit target", Order=6, GroupName="Parameters")]
+		[Display(Name="TakeProfitTicks", Description="What is the min Profit target", Order=10, GroupName="Parameters")]
 		public int profitTargetTicks
 		{ get; set; }
 
 		[NinjaScriptProperty]
 		[Range(1, int.MaxValue)]
-		[Display(Name="StopLossTicks", Description="What is the StopLoss", Order=7, GroupName="Parameters")]
+		[Display(Name="StopLossTicks", Description="What is the StopLoss", Order=11, GroupName="Parameters")]
 		public int stopLossTicks
 		{ get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name="UseATRforStopLoss", Description="Use ATR instead of ticks for stop Loss", Order=8, GroupName="Parameters")]
+		[Display(Name="UseATRforStopLoss", Description="Use ATR instead of ticks for stop Loss", Order=12, GroupName="Parameters")]
 		public bool UseATRforStopLoss
 		{ get; set; }
 
 		[NinjaScriptProperty]
 		[Range(1, int.MaxValue)]
-		[Display(Name="TrailProfitTrigger", Description="Profit Trigger for stop loss trailing", Order=9, GroupName="Parameters")]
+		[Display(Name="TrailProfitTrigger", Description="Profit Trigger for stop loss trailing", Order=13, GroupName="Parameters")]
 		public int trailProfitTrigger
 		{ get; set; }
 
 		[NinjaScriptProperty]
 		[Range(1, int.MaxValue)]
-		[Display(Name="TrailStepTicks", Description="Steps at which we will trail the profit", Order=10, GroupName="Parameters")]
+		[Display(Name="TrailStepTicks", Description="Steps at which we will trail the profit", Order=14, GroupName="Parameters")]
 		public int trailStepTicks
 		{ get; set; }
 		#endregion
