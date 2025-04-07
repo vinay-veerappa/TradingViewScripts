@@ -1,0 +1,377 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © syntaxgeek
+
+//           _____            _____                   _____            _____                   _____                                          _____                   _____                   _____                   _____          
+//          /\    \          |\    \                 /\    \          /\    \                 /\    \                ______                  /\    \                 /\    \                 /\    \                 /\    \         
+//         /::\    \         |:\____\               /::\____\        /::\    \               /::\    \              |::|   |                /::\    \               /::\    \               /::\    \               /::\____\        
+//        /::::\    \        |::|   |              /::::|   |        \:::\    \             /::::\    \             |::|   |               /::::\    \             /::::\    \             /::::\    \             /:::/    /        
+//       /::::::\    \       |::|   |             /:::::|   |         \:::\    \           /::::::\    \            |::|   |              /::::::\    \           /::::::\    \           /::::::\    \           /:::/    /         
+//      /:::/\:::\    \      |::|   |            /::::::|   |          \:::\    \         /:::/\:::\    \           |::|   |             /:::/\:::\    \         /:::/\:::\    \         /:::/\:::\    \         /:::/    /          
+//     /:::/__\:::\    \     |::|   |           /:::/|::|   |           \:::\    \       /:::/__\:::\    \          |::|   |            /:::/  \:::\    \       /:::/__\:::\    \       /:::/__\:::\    \       /:::/____/           
+//     \:::\   \:::\    \    |::|   |          /:::/ |::|   |           /::::\    \     /::::\   \:::\    \         |::|   |           /:::/    \:::\    \     /::::\   \:::\    \     /::::\   \:::\    \     /::::\    \           
+//   ___\:::\   \:::\    \   |::|___|______   /:::/  |::|   | _____    /::::::\    \   /::::::\   \:::\    \        |::|   |          /:::/    / \:::\    \   /::::::\   \:::\    \   /::::::\   \:::\    \   /::::::\____\________  
+//  /\   \:::\   \:::\    \  /::::::::\    \ /:::/   |::|   |/\    \  /:::/\:::\    \ /:::/\:::\   \:::\    \ ______|::|___|___ ____ /:::/    /   \:::\ ___\ /:::/\:::\   \:::\    \ /:::/\:::\   \:::\    \ /:::/\:::::::::::\    \ 
+// /::\   \:::\   \:::\____\/::::::::::\____/:: /    |::|   /::\____\/:::/  \:::\____/:::/  \:::\   \:::\____|:::::::::::::::::|    /:::/____/  ___\:::|    /:::/__\:::\   \:::\____/:::/__\:::\   \:::\____/:::/  |:::::::::::\____\
+// \:::\   \:::\   \::/    /:::/~~~~/~~     \::/    /|::|  /:::/    /:::/    \::/    \::/    \:::\  /:::/    |:::::::::::::::::|____\:::\    \ /\  /:::|____\:::\   \:::\   \::/    \:::\   \:::\   \::/    \::/   |::|~~~|~~~~~     
+//  \:::\   \:::\   \/____/:::/    /         \/____/ |::| /:::/    /:::/    / \/____/ \/____/ \:::\/:::/    / ~~~~~~|::|~~~|~~~      \:::\    /::\ \::/    / \:::\   \:::\   \/____/ \:::\   \:::\   \/____/ \/____|::|   |          
+//   \:::\   \:::\    \  /:::/    /                  |::|/:::/    /:::/    /                   \::::::/    /        |::|   |          \:::\   \:::\ \/____/   \:::\   \:::\    \      \:::\   \:::\    \           |::|   |          
+//    \:::\   \:::\____\/:::/    /                   |::::::/    /:::/    /                     \::::/    /         |::|   |           \:::\   \:::\____\      \:::\   \:::\____\      \:::\   \:::\____\          |::|   |          
+//     \:::\  /:::/    /\::/    /                    |:::::/    /\::/    /                      /:::/    /          |::|   |            \:::\  /:::/    /       \:::\   \::/    /       \:::\   \::/    /          |::|   |          
+//      \:::\/:::/    /  \/____/                     |::::/    /  \/____/                      /:::/    /           |::|   |             \:::\/:::/    /         \:::\   \/____/         \:::\   \/____/           |::|   |          
+//       \::::::/    /                               /:::/    /                               /:::/    /            |::|   |              \::::::/    /           \:::\    \              \:::\    \               |::|   |          
+//        \::::/    /                               /:::/    /                               /:::/    /             |::|   |               \::::/    /             \:::\____\              \:::\____\              \::|   |          
+//         \::/    /                                \::/    /                                \::/    /              |::|___|                \::/____/               \::/    /               \::/    /               \:|   |          
+//          \/____/                                  \/____/                                  \/____/                ~~                                              \/____/                 \/____/                 \|___|        
+
+//@version=6
+indicator("0dte CLOSE Expected Move VxV", "Expected Move (Close) [VxV]", overlay=true, max_bars_back = 50)
+import RicardoSantos/FunctionWeekofmonth/1
+// { consts
+var C_CONTRACT_SIDE_CALL = "C"
+var C_CONTRACT_SIDE_PUT = "P"
+var C_GROUP_NAME_COLORS = 'Colors'
+var C_GROUP_NAME_EXTRAS = 'Extras'
+// } consts
+
+// { inputs
+var dataWindowStartInput = input.time(timestamp('01 Apr 2025 12:00 +0000'), 'Start', "Data Window")
+var colorHighInput = input.color(color.teal, 'EM High', group=C_GROUP_NAME_COLORS)
+var colorLowInput = input.color(color.red, 'EM Low', group=C_GROUP_NAME_COLORS)
+var colorCenterInput = input.color(color.gray, 'EM Center', group=C_GROUP_NAME_COLORS)
+//var roundToAmountInput = input.int(5, 'Round To Nearest', group=C_GROUP_NAME_EXTRAS, tooltip='For some securities the strikes are incrementing by 5 instead of 1, adjust here when needed.')
+var useClose    = input.bool(true,"Use Close iso Open to anchor the EM")
+
+// } inputs
+
+var tf =  timeframe.period //"1D"  //
+// types 
+
+//Stores the options data chain discrepanies
+//can also store the specific symbol to return as well
+
+type OptionsData
+    string symbol
+    string optionsSymbol
+    float   strike
+    bool    weekly
+
+var day_array = array.from("A","B","C","D","W","W","W")
+
+// Create an array to store options data
+var options_data = array.new<OptionsData>(10)
+
+// Add hardcoded options data
+// Create a map to store options data for faster lookups (if needed, otherwise keep array)
+var map<string, OptionsData> options_map = map.new<string, OptionsData>()
+var OptionsData[] options_array = array.new<OptionsData>() // Alternative: array
+
+// Add hardcoded options data (populate map and/or array once)
+if barstate.isfirst
+    array.push(options_array, OptionsData.new("AAPL", "AAPL", 5, true))
+    map.put(options_map, "AAPL", OptionsData.new("AAPL", "AAPL", 5, true)) // For map usage
+    // Add other options data...
+
+// { funcs
+roundToNearest(float value, float nearest) => math.round(value / nearest) * nearest
+
+// Function to look up options data for a given symbol (using map - more efficient if you have many lookups)
+get_options_for_symbol(string symbol) =>
+    map.get(options_map, symbol) // Efficient lookup
+    // or (if using array):
+    //  OptionData result = na
+    //  for i = 0 to array.size(options_array) - 1
+    //      option = array.get(options_array, i)
+    //      if str.contains(symbol, option.symbol)
+    //          result := option
+    //  result
+
+
+// Function to format the date
+format_date(year, month, day) =>
+    year_str = str.tostring(year % 100)
+    month_str = month < 10 ? "0" + str.tostring(month) : str.tostring(month)
+    day_str = day < 10 ? "0" + str.tostring(day) : str.tostring(day)
+    year_str + month_str + day_str
+
+// Function to get days in month
+days_in_month(y, m) =>
+    m == 2 ? y % 4 == 0 and y % 100 != 0 or y % 400 == 0 ? 29 : 28 : m == 4 or m == 6 or m == 9 or m == 11 ? 30 : 31
+
+
+getDoWforStock() =>
+   // Find the next Friday
+    expiry_day = dayofmonth
+    days_until_friday = 6 - dayofweek // Calculate days until Friday (0-6, Mon-Sun)
+    if days_until_friday == 0
+        days_until_friday := 7 // If it's Friday, use next Friday
+    expiry_day := dayofmonth + days_until_friday
+    expiry_day
+
+getDoWforFutures() =>
+    day = day_array.get(dayofweek(time,"America/New_York")-1)
+
+    wkNum = str.tostring(FunctionWeekofmonth.weekofmonth(time)-1)
+    if dayofweek(time,"America/New_York") == dayofweek.friday
+        day := day+wkNum
+    else
+        day := wkNum+day
+    str.tostring(day)
+
+getContractCost(_sym, _useClose) => request.security(_sym,_useClose ? "1D" : tf , _useClose? close:open, ignore_invalid_symbol=true)
+
+getContractSym(_underlyingSym, _strike, _side,OptionsData current_symbol_options) =>
+    
+    // Determine the expiration date
+    expiry_year = year
+    expiry_month = month
+    expiry_day = useClose?  dayofmonth + 1 : dayofmonth // Default to next day
+
+    if dayofweek == dayofweek.friday
+        expiry_day := dayofmonth + 3 // Monday's date
+
+    if syminfo.type ==  "stock" or str.contains(syminfo.ticker,"NDX" )
+        // Calculate the date of the next Friday
+        days_until_friday = 6 - dayofweek // Calculate days until Friday (0-6, Mon-Sun)
+        if days_until_friday < 0
+            days_until_friday := days_until_friday + 7 // Adjust for Sunday (0)
+        if days_until_friday == 0
+            days_until_friday := 7 // If it's Friday, use next Friday
+        expiry_day := dayofmonth + days_until_friday
+
+        // Handle month and year rollovers
+        max_days = days_in_month(expiry_year, expiry_month)
+        if expiry_day > max_days
+            expiry_month := month + 1
+            expiry_day := expiry_day - max_days
+            if expiry_month > 12
+                expiry_month := 1
+                expiry_year := year + 1
+        
+    strike =  roundToNearest(_strike, current_symbol_options.strike)
+
+                                                                                                        // This part is still iffy. If it is 2.5 then U use that, there is no 0
+    _underlyingSym  + format_date(expiry_year, expiry_month, expiry_day) + _side + str.tostring(strike, '#') + (syminfo.type ==  "stock"?".0": ".0")
+
+getAtmContracts(_underlyingSym, _strike,OptionsData current_symbol_options) =>
+    [getContractSym(_underlyingSym, _strike, C_CONTRACT_SIDE_CALL,current_symbol_options), getContractSym(_underlyingSym, _strike, C_CONTRACT_SIDE_PUT,current_symbol_options)]
+// } funcs
+
+// { logic
+var underlyingSym = syminfo.ticker
+var anchorOpen = useClose? close:open
+var centerStrike = 0.0
+var todayExpAtmCallSym = ""
+var todayExpAtmPutSym = ""
+var todayExpAtmCallCost = 0.0
+var todayExpAtmPutCost = 0.0
+var todayEM = 0.0
+var todayEMHigh = 0.0
+var todayEMHighHalf = 0.0
+var todayEMLow = 0.0
+var todayEMLowHalf = 0.0
+var OptionsData current_symbol_options = OptionsData.new("",syminfo.ticker,1,false)
+
+var bi = bar_index
+var bi_offset = 25
+
+var line EMHigh = line.new(na, na, na, na, width = 3, color = colorHighInput, style= line.style_solid)
+var line EMLow = line.new(na, na, na, na, width = 3, color = colorLowInput, style= line.style_solid)
+var line EMHighHalf = line.new(na, na, na, na, width = 3, color = colorHighInput, style= line.style_dotted)
+var line EMLowHalf = line.new(na, na, na, na, width = 3, color = colorLowInput, style= line.style_dotted)
+var line Center = line.new(na, na, na, na, width = 3, color = colorCenterInput, style= line.style_solid)
+
+var label EMHighLabel = label.new(bar_index, low, text="EM High", textcolor = colorHighInput , style=label.style_none, size = size.small, textalign = text.align_left)
+var label EMLowLabel = label.new(bar_index , low, text="EM Low", textcolor = colorLowInput ,style=label.style_none, size = size.small, textalign = text.align_left)
+var label EMHighHalfLabel = label.new(bar_index, low, text="EM 0.5 High", textcolor = colorHighInput ,style=label.style_none, size = size.small, textalign = text.align_left)
+var label EMLowHalfLabel = label.new(bar_index, low, text="EM 0.5 Low",textcolor = colorLowInput , style=label.style_none, size = size.small, textalign = text.align_left)
+var label CenterLabel = label.new(bar_index, low, text="Strike", textcolor = colorCenterInput , style=label.style_none, size = size.small, textalign = text.align_left)
+
+newDay = useClose? not na(time("", "1559-1600", "America/New_York")) :not na(time("", "0930-0931", "America/New_York"))  
+newDayFutures =  useClose? not na(time("", "1614-1615", "America/New_York")) :not na(time("", "0930-0931", "America/New_York"))  
+newDayIndex =  useClose? not na(time("", "1600-1601", "America/New_York")) :not na(time("", "0930-0931", "America/New_York"))  
+//newDay = timeframe.change("1D")
+//newWeek = timeframe.change('1W')
+//newWeek = time_close("1W",0)
+//currentWeekOpenTime = time("1W",0)
+
+var lasstbarvalue = 0
+
+//if  newDay
+   // log.info("lasstbarvalue " + str.tostring(request.security(syminfo.ticker, "1D" , useClose? close[0]:open, ignore_invalid_symbol=true)))
+
+// only displays on 1m TF when market is closed. 
+if (time > dataWindowStartInput) and ((newDay  and syminfo.type !=  "futures") or (newDayFutures  and syminfo.type ==  "futures") or (newDayIndex  and str.contains(syminfo.type, "index") ))
+   // log.info("New Day Ends")
+    bi := bar_index
+    //nnDay := false
+    todayEMHigh := 0
+    todayEMLow := 0
+    todayEMHighHalf := 0
+    todayEMLowHalf := 0
+
+    if (close > 200)
+        current_symbol_options.strike := 5
+
+    current_symbol_options.optionsSymbol :=  syminfo.ticker
+    if str.contains(syminfo.ticker,"NQ" )  or str.contains(syminfo.ticker,"NDX" )
+        underlyingSym := "NDX"
+        current_symbol_options.optionsSymbol := "NDXP"
+        current_symbol_options.strike := 5
+    if str.contains(syminfo.ticker,"ES" )  or str.contains(syminfo.ticker,"SPX" )
+        underlyingSym := "SPX"
+        current_symbol_options.optionsSymbol := "SPXW"
+        current_symbol_options.strike := 5
+    if str.contains(syminfo.ticker,"TSLA" ) or str.contains(syminfo.ticker,"VIX" ) 
+        current_symbol_options.strike := 2.5
+    if str.contains(syminfo.ticker,"AAPL" ) or str.contains(syminfo.ticker,"NFLX" ) or str.contains(syminfo.ticker,"AMZN" )  or str.contains(syminfo.ticker,"COIN" )  or str.contains(syminfo.ticker,"BA" ) or str.contains(syminfo.ticker,"QCOM" )
+        current_symbol_options.strike := 5
+    if str.contains(syminfo.ticker,"NIO" ) or str.contains(syminfo.ticker,"BILI" ) or str.contains(syminfo.ticker,"BIDU" )  or str.contains(syminfo.ticker,"UNG" )  or str.contains(syminfo.ticker,"BOIL" )
+        current_symbol_options.strike := 0.5
+
+
+    
+    //log.info("time_close = "+ str.tostring(currentWeekOpenTime) +" input time = "+ str.tostring(dataWindowStartInput) + " time ="+str.tostring(time))
+    anchorOpen := getContractCost(underlyingSym,useClose)
+    centerStrike := math.round(getContractCost(underlyingSym,useClose), 0)
+    log.info("New Session " + str.tostring(anchorOpen) + " " + str.tostring(centerStrike))
+
+    [atmCall, atmPut] = getAtmContracts(current_symbol_options.optionsSymbol, centerStrike,current_symbol_options)
+    todayExpAtmCallSym := atmCall
+    todayExpAtmPutSym := atmPut
+
+    log.info(todayExpAtmCallSym + " & " + todayExpAtmPutSym)
+
+    todayExpAtmCallCost := getContractCost(todayExpAtmCallSym,false)
+    todayExpAtmPutCost := getContractCost(todayExpAtmPutSym,false)
+    //todayExpAtmCallCost := request.security("NDXP250404C18050.0","",close)
+
+    log.info(str.tostring(todayExpAtmCallCost) + " & " + str.tostring(todayExpAtmPutCost))
+
+    //if syminfo.type ==  "futures"
+    anchorOpen := math.round_to_mintick( anchorOpen + (request.security(syminfo.ticker,tf , useClose? close:open, ignore_invalid_symbol=true) - anchorOpen))
+
+    log.info("New Open " + str.tostring(anchorOpen))
+
+    if not na(todayExpAtmCallCost) and not na(todayExpAtmPutCost)
+        todayEM := math.round_to_mintick( todayExpAtmCallCost + todayExpAtmPutCost)
+        todayEMHigh := math.round_to_mintick(anchorOpen + todayEM)
+        todayEMHighHalf := math.round_to_mintick(anchorOpen + (todayEM / 2))
+        todayEMLow := math.round_to_mintick(anchorOpen - todayEM)
+        todayEMLowHalf := math.round_to_mintick(anchorOpen - (todayEM / 2))
+    
+    EMHigh.set_xy1(bi, todayEMHigh == 0.0 ? na : todayEMHigh)
+    EMHigh.set_xy2(bi +bi_offset, todayEMHigh == 0.0 ? na : todayEMHigh)
+    EMHighHalf.set_xy1(bi, todayEMHighHalf == 0.0 ? na : todayEMHighHalf)
+    EMHighHalf.set_xy2(bi+ bi_offset, todayEMHighHalf == 0.0 ? na : todayEMHighHalf)
+    EMLow.set_xy1(bi, todayEMLow == 0.0 ? na : todayEMLow)
+    EMLow.set_xy2(bi+ bi_offset, todayEMLow == 0.0 ? na : todayEMLow) 
+    EMLowHalf.set_xy1(bi, todayEMLowHalf == 0.0 ? na : todayEMLowHalf)
+    EMLowHalf.set_xy2(bi+ bi_offset, todayEMLowHalf == 0.0 ? na : todayEMLowHalf)
+    Center.set_xy1(bi, anchorOpen == 0.0 ? na : anchorOpen)
+    Center.set_xy2(bi+ bi_offset, anchorOpen == 0.0 ? na : anchorOpen)
+
+    EMHighLabel.set_xy(bi +bi_offset, todayEMHigh == 0.0 ? na : todayEMHigh)
+    EMLowLabel.set_xy(bi+ bi_offset, todayEMLow == 0.0 ? na : todayEMLow)
+    EMHighHalfLabel.set_xy(bi+ bi_offset, todayEMHighHalf == 0.0 ? na : todayEMHighHalf)
+    EMLowHalfLabel.set_xy(bi+ bi_offset, todayEMLowHalf == 0.0 ? na : todayEMLowHalf)
+    CenterLabel.set_xy(bi+ bi_offset, anchorOpen == 0.0 ? na : anchorOpen)
+    
+
+// Extend the lines for each bar
+if barstate.islast
+    Center.set_x2(bar_index+ bi_offset)
+    EMHigh.set_x2(bar_index+ bi_offset)
+    EMHighHalf.set_x2(bar_index+ bi_offset)
+    EMLow.set_x2(bar_index+ bi_offset)
+    EMLowHalf.set_x2(bar_index+ bi_offset)
+
+    CenterLabel.set_x(bar_index+ bi_offset + 20)
+    EMHighLabel.set_x(bar_index+ bi_offset + 20)
+    EMHighHalfLabel.set_x(bar_index+ bi_offset + 25)
+    EMLowLabel.set_x(bar_index+ bi_offset + 20)
+    EMLowHalfLabel.set_x(bar_index+ bi_offset + 25)
+
+    CenterLabel.set_text("Strike "+str.tostring(centerStrike))
+    EMHighLabel.set_text("EM High "+str.tostring(todayEMHigh))
+    EMHighHalfLabel.set_text("EM 0.5 High "+str.tostring(todayEMHighHalf))
+    EMLowLabel.set_text("EM Low "+str.tostring(todayEMLow))
+    EMLowHalfLabel.set_text("EM 0.5 Low  "+str.tostring(todayEMLowHalf))
+
+// } logic
+//log.info("New Open " + str.tostring(anchorOpen))
+// { 
+
+
+//@variable The time zone of the time values in the last table row. 
+//          The "string" can contain either UTC offset notation or an IANA time zone identifier. 
+string timezoneInput = input.string("UTC+4:00", "Time zone")
+
+//@variable A `table` showing strings representing bar times in three preset time zones and a custom time zone. 
+var table displayTable = table.new(
+     position.bottom_right, columns = 4, rows = 5, border_color = chart.fg_color, border_width = 2
+ )
+
+//@function Initializes three `displayTable` cells on the `row` that show the `title`, `text1`, and `text2` strings. 
+tableRow(int row, string title, string text1, string text2, string text3,color titleColor = #9b27b066, color infoColor = na) =>
+    displayTable.cell(0, row, title, bgcolor = titleColor, text_color = chart.fg_color)
+    displayTable.cell(1, row, text1, bgcolor = infoColor,  text_color = chart.fg_color)
+    displayTable.cell(2, row, text2, bgcolor = infoColor,  text_color = chart.fg_color)
+    displayTable.cell(3, row, text3, bgcolor = infoColor,  text_color = chart.fg_color)
+
+
+if barstate.islast
+    tableRow(0, "STRIKE", "EM","EMHigh", "EMLow", na, #9b27b066)
+    tableRow(1, str.tostring(centerStrike),str.tostring(todayEM),str.tostring(todayEMHigh), str.tostring(todayEMLow), na, #9b27b066)
+
+// Define a function to check if a bar is within the current day
+isWithinCurrentDay(bar_time) =>
+    // Get the current day's date
+    current_date = time("1D",0)
+    // Calculate the start of the current day
+    current_day_start = time("1D",0) - time("1D",1) 
+    // Check if the bar's time is within the current day
+    bar_time >= current_day_start and bar_time < current_day_start + 24 * 3600
+
+// bool nnDay = timeframe.change("1D")
+// //v = time.change("1D",0) 
+// max_bars_back(nnDay, 2)
+// //log.info("# Days" + str.tostring(nnDay[0]))
+
+// if barstate.islastconfirmedhistory
+//         // Do something with the confirmed historical bar
+//         // Get the time of the current bar
+//     bar_time = time("",0)
+//         // Check if the bar is within the current day
+//     if isWithinCurrentDay(bar_time)
+//         log.info("# Days" )
+            
+
+// if not na(time("", "0930-0931", "America/New_York"))
+//     // Draw an empty label to signify the bar that the displayed time strings represent.
+//     label.new(bar_index, high, color = #9b27b066, size = size.huge)
+//    // dataWindowStartInput := time
+//     nnDay := true
+
+//     //@variable The formatting string for all `str.format_time()` calls. Sets the format of the date-time strings. 
+//     var string formatString = "yyyy-MM-dd  HH:mm:ss"
+//     // Initialize a header row at the top of the `displayTable`.
+//     tableRow(0, "", "OPEN time", "CLOSE time", na, #9b27b066)
+//     // Initialize a row showing the bar's times in the default time zone (no specified `timezone` arguments).
+//     tableRow(1, "Default", str.format_time(time, formatString), str.format_time(time_close, formatString))
+//     // Initialize a row showing the bar's times in the exchange time zone (`syminfo.timezone`).
+//     tableRow(2, "Exchange: " + syminfo.timezone, 
+//          str.format_time(time, formatString, syminfo.timezone),
+//          str.format_time(time_close, formatString, syminfo.timezone)
+//      )  
+//     // Initialize a row showing the bar's times in the UTC-0 time zone (using "UTC" as the `timezone` arguments).
+//     tableRow(3, "UTC-0", str.format_time(time, formatString, "UTC"), str.format_time(dataWindowStartInput, formatString))
+    
+//     // Initialize a row showing the bar's times in the custom time zone (`timezoneInput`).
+//     tableRow(
+//          4, "Custom: " + timezoneInput, 
+//          str.format_time(time, formatString, timezoneInput), 
+//          str.format_time(time_close, formatString, timezoneInput)
+//      )
+
+
+// } plots
