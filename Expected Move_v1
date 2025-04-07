@@ -214,7 +214,7 @@ if (time > dataWindowStartInput) and ((newDay  and syminfo.type !=  "futures") o
 
 
 
-    if (close > 200)
+    if (close > 200  and syminfo.type ==  "stock")  // this will cover a large set of stocks but is still not a good way to do this
         current_symbol_options.strike := 5
 
     current_symbol_options.optionsSymbol :=  syminfo.ticker
