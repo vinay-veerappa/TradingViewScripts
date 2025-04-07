@@ -1,0 +1,118 @@
+// This Pine Script® code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © vveerappa
+
+//@version=6
+indicator('Expected Move Calculation', overlay = false)
+
+// Inputs
+underlying_symbol = input.string('SPXW', 'Underlying Symbol')
+atm_strike = input.float(4500, 'ATM Strike Price')
+otm1_offset = input.float(1, '1st OTM Offset') // Distance from ATM strike
+otm2_offset = input.float(1, '2nd OTM Offset') // Distance from ATM strike
+
+// Function to format option symbols (adjust as needed for your data source)
+format_option_symbol(underlying, strike, option_type, expiry_date) =>
+    // This is a placeholder - you'll likely need to adjust this to match your data provider's format
+    underlying + expiry_date + option_type + str.tostring(strike) + (".0")
+
+// Placeholder function to get option prices (replace with your data retrieval method)
+// Function to get option prices using request.security
+get_option_price(option_symbol) =>
+    request.security(option_symbol, timeframe.period, close, ignore_invalid_symbol=true)
+
+
+// Calculate strike prices
+otm1_call_strike = atm_strike + otm1_offset
+otm1_put_strike = atm_strike - otm1_offset
+otm2_call_strike = atm_strike + otm2_offset
+otm2_put_strike = atm_strike - otm2_offset
+useClose = true
+
+newDay = useClose? not na(time("", "1559-1600", "America/New_York")) :not na(time("", "0930-0931", "America/New_York"))  
+newDayFutures =  useClose? not na(time("", "1614-1615", "America/New_York")) :not na(time("", "0930-0931", "America/New_York"))  
+newDayIndex =  useClose? not na(time("", "1600-1601", "America/New_York")) :not na(time("", "0930-0931", "America/New_York"))  
+
+// Placeholder for expiration date (replace with your logic)
+expiry_date = '250407' // Example: YYMMDD
+//underlying_symbol = syminfo.ticker
+// Construct option symbols
+atm_call_symbol = format_option_symbol(underlying_symbol, atm_strike, 'C', expiry_date)
+atm_put_symbol = format_option_symbol(underlying_symbol, atm_strike, 'P', expiry_date)
+otm1_call_symbol = format_option_symbol(underlying_symbol, otm1_call_strike, 'C', expiry_date)
+otm1_put_symbol = format_option_symbol(underlying_symbol, otm1_put_strike, 'P', expiry_date)
+otm2_call_symbol = format_option_symbol(underlying_symbol, otm2_call_strike, 'C', expiry_date)
+otm2_put_symbol = format_option_symbol(underlying_symbol, otm2_put_strike, 'P', expiry_date)
+
+// only displays on 1m TF when market is closed. 
+if  ((newDay  and syminfo.type !=  "futures") or (newDayFutures  and syminfo.type ==  "futures") or (newDayIndex  and str.contains(syminfo.type, "index") ))
+    // Get option prices (replace with your data retrieval)
+    atm_call_price = get_option_price(atm_call_symbol)
+    atm_put_price = get_option_price(str.tostring(atm_put_symbol))
+    otm1_call_price = get_option_price(otm1_call_symbol)
+    otm1_put_price = get_option_price(otm1_put_symbol)
+    otm2_call_price = get_option_price(otm2_call_symbol)
+    otm2_put_price = get_option_price(otm2_put_symbol)
+
+    // Calculate straddle and strangle prices
+    atm_straddle_price = atm_call_price + atm_put_price
+    otm1_strangle_price = otm1_call_price + otm1_put_price
+    otm2_strangle_price = otm2_call_price + otm2_put_price
+
+    // Calculate Expected Move
+    expected_move1 = atm_straddle_price * 0.6 + otm1_strangle_price * 0.3 + otm2_strangle_price * 0.1
+    expected_move2 = atm_straddle_price * 0.85
+    expected_move3 = (atm_straddle_price + otm1_strangle_price)/2
+
+    // Create a table to display the values
+    var table tbl = table.new(position.top_right, 4, 10, bgcolor=color.gray, border_color=color.white) // Increased rows and columns
+
+    // Populate the table with headers and values on every bar
+    table.cell(tbl, 0, 0, "Metric", text_color=color.white)
+    table.cell(tbl, 1, 0, "Symbol", text_color=color.white)
+    table.cell(tbl, 2, 0, "Price", text_color=color.white)
+    table.cell(tbl, 3, 0, "Expected Move", text_color=color.white)
+
+    table.cell(tbl, 0, 1, "ATM Call", text_color=color.white)
+    table.cell(tbl, 1, 1, atm_call_symbol, text_color=color.white)
+    table.cell(tbl, 2, 1, str.tostring(atm_call_price, "0.00"), text_color=color.white)
+    table.cell(tbl, 3, 1, "", text_color=color.white)
+
+    table.cell(tbl, 0, 2, "ATM Put", text_color=color.white)
+    table.cell(tbl, 1, 2, atm_put_symbol, text_color=color.white)
+    table.cell(tbl, 2, 2, str.tostring(atm_put_price, "0.00"), text_color=color.white)
+    table.cell(tbl, 3, 2, "", text_color=color.white)
+
+    table.cell(tbl, 0, 3, "OTM1 Call", text_color=color.white)
+    table.cell(tbl, 1, 3, otm1_call_symbol, text_color=color.white)
+    table.cell(tbl, 2, 3, str.tostring(otm1_call_price, "0.00"), text_color=color.white)
+    table.cell(tbl, 3, 3, "", text_color=color.white)
+
+    table.cell(tbl, 0, 4, "OTM1 Put", text_color=color.white)
+    table.cell(tbl, 1, 4, otm1_put_symbol, text_color=color.white)
+    table.cell(tbl, 2, 4, str.tostring(otm1_put_price, "0.00"), text_color=color.white)
+    table.cell(tbl, 3, 4, "", text_color=color.white)
+
+    table.cell(tbl, 0, 5, "OTM2 Call", text_color=color.white)
+    table.cell(tbl, 1, 5, otm2_call_symbol, text_color=color.white)
+    table.cell(tbl, 2, 5, str.tostring(otm2_call_price, "0.00"), text_color=color.white)
+    table.cell(tbl, 3, 5, "", text_color=color.white)
+
+    table.cell(tbl, 0, 6, "OTM2 Put", text_color=color.white)
+    table.cell(tbl, 1, 6, otm2_put_symbol, text_color=color.white)
+    table.cell(tbl, 2, 6, str.tostring(otm2_put_price, "0.00"), text_color=color.white)
+    table.cell(tbl, 3, 6, "", text_color=color.white)
+
+    table.cell(tbl, 0, 7, "Expected Move TastyTrades", text_color=color.white)
+    table.cell(tbl, 1, 7, "", text_color=color.white)
+    table.cell(tbl, 2, 7, "", text_color=color.white)
+    table.cell(tbl, 3, 7, str.tostring(expected_move1, "0.00"), text_color=color.white)
+
+    table.cell(tbl, 0, 8, "Expected Move Barchart", text_color=color.white)
+    table.cell(tbl, 1, 8, "", text_color=color.white)
+    table.cell(tbl, 2, 8, "", text_color=color.white)
+    table.cell(tbl, 3, 8, str.tostring(expected_move2, "0.00"), text_color=color.white)
+
+    table.cell(tbl, 0, 9, "Expected Move ToS", text_color=color.white)
+    table.cell(tbl, 1, 9, "", text_color=color.white)
+    table.cell(tbl, 2, 9, "", text_color=color.white)
+    table.cell(tbl, 3, 9, str.tostring(expected_move3, "0.00"), text_color=color.white)
