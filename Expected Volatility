@@ -1,0 +1,266 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © ShadowOfCrimson
+//  https://www.tradingview.com/script/dsXscaGY-Expected-Volatility/
+
+
+//Notes: request.security can only be called 40 times in one script, use it more sparingly to allow the script to draw
+//more boxes back for backtesting... there should be a more effective way to do it...
+
+//@version=6
+indicator('Expected Volatility', overlay = true, max_bars_back = 500)
+//This indicator shows expected move sizes when correlated with each volatility index.
+
+//turn this variable on to test what market the chart thinks it is on.
+troubleshooting = input(false, 'Troubleshooting?')
+box_transparency = input(80, 'Transparency') //Allow user to change the transparency of the indicator
+sess_Time = input('0930-1600', 'Session Time') //Allow user to input custom session time
+sess_TimeZone = input('GMT-3', 'TimeZone') //Allow user to input custom timezone
+close_day = close[1] //The previous day's closing price
+
+//  Market and Volatility Index pairs begin:
+
+//  ES & VIX
+//  Request the previous day's settlement on ES
+//ES = request.security('CME_MINI:ES1!', '1D', close_day, gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_on) //function to request data from a different chart "CME_MINI:ES1!",   //the name of the security requested "1D",  //the timeframe of the request close_day, //the time requested gaps = barmerge.gaps_off,  //merge strategy for requested data lookahead = barmerge.lookahead_on  //merge strategy for the requested data position )
+
+//  plot an invisible ES chart to see the values in the data window during troubleshooting
+//plotES = plot(ES, 'ES', color = color.new(color.white, 100))
+
+//  Request the previous day's settlement on VIX
+//VIX = request.security('CBOE:VIX', '1D', close_day, gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_on)
+//  plot an invisible VIX chart to see the values in the data window during troubleshooting
+//plotVIX = plot(VIX, 'VIX', color = color.new(color.white, 100))
+
+//  NQ & VXN
+//  Request the previous day's settlement on NQ
+NQ = request.security('CME_MINI:NQ1!', '1D', close_day, gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_on)
+
+//  plot an invisible NQ chart to see the values in the data window during troubleshooting
+plotNQ = plot(NQ, 'NQ', color = color.new(color.white, 100))
+
+//  Request the previous day's settlement on VXN
+VXN = request.security('CBOE:VXN', '1D', close_day, gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_on)
+
+//  plot an invisible VXN chart to see the values in the data window during troubleshooting
+plotVXN = plot(VXN, 'VXN', color = color.new(color.white, 100))
+
+//  CL & OVX
+//  Request the previous day's settlement on CL
+CL = request.security('NYMEX:CL1!', '1D', close_day, gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_on)
+
+//  plot an invisible CL chart to see the values in the data window during troubleshooting
+plotCL = plot(CL, 'CL', color = color.new(color.white, 100))
+
+//  Request the previous day's settlement on OVX
+OVX = request.security('CBOE:OVX', '1D', close_day, gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_on)
+
+//  plot an invisible OVX chart to see the values in the data window during troubleshooting
+plotOVX = plot(OVX, 'OVX', color = color.new(color.white, 100))
+
+//  RTY & RVX
+//  Request the previous day's settlement on RTY
+RTY = request.security('CME_MINI:RTY1!', '1D', close_day, gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_on)
+
+//  plot an invisible RTY chart to see the values in the data window during troubleshooting
+plotRTY = plot(RTY, 'RTY', color = color.new(color.white, 100))
+
+//  Request the previous day's settlement on RVX
+RVX = request.security('CBOE:RVX', '1D', close_day, gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_on)
+
+//  plot an invisible RVX chart to see the values in the data window during troubleshooting
+plotRVX = plot(RVX, 'RVX', color = color.new(color.white, 100))
+
+//  VIX & VVIX
+//  Request the previous day's settlement on VVIX
+VVIX = request.security('CBOE:VVIX', '1D', close_day, gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_on)
+
+//  plot an invisible VVIX chart to see the values in the data window during troubleshooting
+plotVVIX = plot(VVIX, 'VVIX', color = color.new(color.white, 100))
+
+//  GC & GVZ
+//  Request the previous day's settlement on GC
+GC = request.security('COMEX:GC1!', '1D', close_day, gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_on)
+
+//  plot an invisible GC chart to see the values in the data window during troubleshooting
+plotGC = plot(GC, 'GC', color = color.new(color.white, 100))
+
+//  Request the previous day's settlement on GVZ
+GVZ = request.security('CBOE:GVZ', '1D', close_day, gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_on)
+
+//  plot an invisible GVZ chart to see the values in the data window during troubleshooting
+plotGVZ = plot(GVZ, 'GVZ', color = color.new(color.white, 100))
+
+//  SI & VXSLV
+//  Request the previous day's settlement on SI
+SI = request.security('MCX:SILVER1!', '1D', close_day, gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_on)
+
+//  plot an invisible SI chart to see the values in the data window during troubleshooting
+plotSI = plot(SI, 'SI', color = color.new(color.white, 100))
+
+//  Request the previous day's settlement on VXSLV
+VXSLV = request.security('CBOE:VXSLV', '1D', close_day, gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_on)
+
+//  plot an invisible VXSLV chart to see the values in the data window during troubleshooting
+plotVXSLV = plot(VXSLV, 'VXSLV', color = color.new(color.white, 100))
+
+//  YM & VXD
+//  Request the previous day's settlement on YM
+YM = request.security('CBOT_MINI:YM1!', '1D', close_day, gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_on) //function to request data from a different chart "CBOT_MINI:YM1!",   //the name of the security requested "1D",  //the timeframe of the request close_day, //the time requested gaps = barmerge.gaps_off,  //merge strategy for requested data lookahead = barmerge.lookahead_on  //merge strategy for the requested data position )
+
+//  plot an invisible ES chart to see the values in the data window during troubleshooting
+plotYM = plot(YM, 'YM', color = color.new(color.white, 100))
+
+//  Request the previous day's settlement on VXD
+VXD = request.security('CBOE:VXD', '1D', close_day, gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_on)
+//  plot an invisible VIX chart to see the values in the data window during troubleshooting
+plotVXD = plot(VXD, 'VXD', color = color.new(color.white, 100))
+
+//  Market and Volatility Index pairs end
+
+//  Useful function from tradingcode.net:
+
+//  IsSessionStart() returns 'true' when the current bar is the first one
+//  inside the specified session, adjusted to the given time zone (optional).
+//  Returns 'false' for other bars inside the session, bars outside the
+//  session, and when the time frame is 1 day or higher.
+IsSessionStart(sessionTime, sessionTimeZone = syminfo.timezone) =>
+    inSess = not na(time(timeframe.period, sessionTime, sessionTimeZone))
+    inSess and not inSess[1]
+
+//bgcolor(IsSessionStart("0930-1600", "GMT-4") ? color.new(color.blue, 80) : na)
+
+//  This function takes the input volatility index and calculates variables a and b
+//  a and b are used later to calculate zones based on standard deviations
+GetVolatility(VolatilityIndex) =>
+    a = VolatilityIndex / 16 / 100 //VIX_A
+    b = VolatilityIndex / math.sqrt(365) / 100 //VIX_B
+    [a, b]
+
+//  This function does all the math to generate the zones when given variables
+//  a, b, and Index, where a and b are the results of GetVolatility(VolatilityIndex)
+//  and Index is the Index correlated to the VolatilityIndex of interest.
+Zones(a, b, Index) =>
+    //Top Zone calculations:
+    Index_STD1UP = Index * a //STD. DEV. 1.0 FOR Index
+    Index_STD1DN = Index * b //STD. DEV. 1.0 FOR Index
+
+    Index_ZONE1UP_Res = Index_STD1UP + Index //Upper std. dev. 1.0
+    Index_ZONE1DN_Res = Index_STD1DN + Index //Lower std. dev. 1.0
+
+    Index_ZONE150UP_Res = Index_STD1UP * 1.5 + Index //1.5 STD. DEV. ZONE UPPER
+    Index_ZONE150DN_Res = Index_STD1DN * 1.5 + Index //1.5 STD. DEV. ZONE LOWER
+
+    Index_ZONE50UP_Res = Index_STD1UP * .5 + Index //.5 STD. DEV. ZONE UPPER
+    Index_ZONE50DN_Res = Index_STD1DN * .5 + Index //.5 STD. DEV. ZONE LOWER
+
+    Index_ZONE25UP_Res = Index_STD1UP * .25 + Index //.25 STD. DEV. ZONE UPPER
+    Index_ZONE25DN_Res = Index_STD1DN * .25 + Index //.25 STD. DEV. ZONE LOWER
+
+    //Bottom Zone calculations:
+    Index_ZONE1UP_Sup = Index - Index_STD1DN //SUBTRACT 1.0 STD. DEV. FROM PRICE
+    Index_ZONE1DN_Sup = Index - Index_STD1UP //SUBTRACT 1.0 STD. DEV. FROM PRICE
+
+    Index_ZONE150UP_Sup = Index - (Index_ZONE150DN_Res - Index)
+    Index_ZONE150DN_Sup = Index - (Index_ZONE150UP_Res - Index)
+
+    Index_ZONE50UP_Sup = Index - (Index_ZONE50DN_Res - Index)
+    Index_ZONE50DN_Sup = Index - (Index_ZONE50UP_Res - Index)
+
+    Index_ZONE25UP_Sup = Index - (Index_ZONE25DN_Res - Index)
+    Index_ZONE25DN_Sup = Index - (Index_ZONE25UP_Res - Index)
+
+    //check if the bar we're on is the start of the session according to the time and timezone variables
+    if IsSessionStart(sess_Time, sess_TimeZone)
+
+        close_time = time_close + 86400000 // time offset for creating boxes in milliseconds
+
+        //Draw a box using all the calculated values
+        //the first box to be drawn is the 1 std. dev. box above the settlement price
+        Index_BOX_1TOP = box.new(left = time_close, top = Index_ZONE1UP_Res, right = close_time, bottom = Index_ZONE1DN_Res, xloc = xloc.bar_time, bgcolor = color.new(color.red, box_transparency), border_color = color.new(color.black, 0)) //the left side of the box in time top = Index_ZONE1UP_Res,   //the top of the box in price right = close_time,    //the right side of the box in time bottom = Index_ZONE1DN_Res,    //the bottom of the box in price xloc = xloc.bar_time,  //we wish to solve the box's x-coordinates in bar time bgcolor = color.new(color.red, box_transparency), border_color = color.new(color.black,0))   //the border of the box to be black
+        //the box should be red and as transparent as the user indicates it to be
+        //this box is the 1 std. dev. box below the settlement price
+        Index_BOX_1BTM = box.new(left = time_close, top = Index_ZONE1DN_Sup, right = close_time, bottom = Index_ZONE1UP_Sup, xloc = xloc.bar_time, bgcolor = color.new(color.green, box_transparency), border_color = color.new(color.black, 0))
+        //this is the 1.5 std. dev. box above the settlement price
+        Index_BOX_2TOP = box.new(left = time_close, top = Index_ZONE150UP_Res, right = close_time, bottom = Index_ZONE150DN_Res, xloc = xloc.bar_time, bgcolor = color.new(color.red, box_transparency), border_color = color.new(color.black, 0))
+        //this is the 1.5 std. dev. box below the settlement price
+        Index_BOX_2BTM = box.new(left = time_close, top = Index_ZONE150DN_Sup, right = close_time, bottom = Index_ZONE150UP_Sup, xloc = xloc.bar_time, bgcolor = color.new(color.green, box_transparency), border_color = color.new(color.black, 0))
+        //this is the 0.5 std. dev. box above the settlement price
+        Index_BOX_3TOP = box.new(left = time_close, top = Index_ZONE50UP_Res, right = close_time, bottom = Index_ZONE50DN_Res, xloc = xloc.bar_time, bgcolor = color.new(color.red, box_transparency), border_color = color.new(color.black, 0))
+        //this is the 0.5 std. dev. box below the settlement price
+        Index_BOX_3BTM = box.new(left = time_close, top = Index_ZONE50DN_Sup, right = close_time, bottom = Index_ZONE50UP_Sup, xloc = xloc.bar_time, bgcolor = color.new(color.green, box_transparency), border_color = color.new(color.black, 0))
+        //this is the 0.25 std. dev. box above the settlement price
+        Index_BOX_4TOP = box.new(left = time_close, top = Index_ZONE25UP_Res, right = close_time, bottom = Index_ZONE25DN_Res, xloc = xloc.bar_time, bgcolor = color.new(color.red, box_transparency), border_color = color.new(color.black, 0))
+        //this is the 0.25 std. dev. box below the settlement price
+        Index_BOX_4BTM = box.new(left = time_close, top = Index_ZONE25DN_Sup, right = close_time, bottom = Index_ZONE25UP_Sup, xloc = xloc.bar_time, bgcolor = color.new(color.green, box_transparency), border_color = color.new(color.black, 0))
+        Index_BOX_4BTM
+
+    //return the values after the function is done:
+    [a, b, Index]
+
+var VIX = 0.0
+//Here, we check which chart we are using to determine what zones to calculate:
+//If we are on ES1!, we use the VIX and then calculate zones using a, b, and ES
+if str.contains(syminfo.ticker, 'ES') //ticker.standard(syminfo.tickerid) == 'CME_MINI:ES1!'
+    //xc
+    //  ES & VIX
+    //  Request the previous day's settlement on ES
+    ES = request.security('CME_MINI:ES1!', '1D', close_day, gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_on) //function to request data from a different chart "CME_MINI:ES1!",   //the name of the security requested "1D",  //the timeframe of the request close_day, //the time requested gaps = barmerge.gaps_off,  //merge strategy for requested data lookahead = barmerge.lookahead_on  //merge strategy for the requested data position )
+
+    //  plot an invisible ES chart to see the values in the data window during troubleshooting
+    //plotES = plot(ES, 'ES', color = color.new(color.white, 100))
+
+    //  Request the previous day's settlement on VIX
+    VIX = request.security('CBOE:VIX', '1D', close_day, gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_on)
+    //  plot an invisible VIX chart to see the values in the data window during troubleshooting
+    //plotVIX = plot(VIX, 'VIX', color = color.new(color.white, 100))
+    [VIX_A, VIX_B] = GetVolatility(VIX)
+    Zones(VIX_A, VIX_B, ES)
+    //if troubleshooting is on, and we see the index is ES1!, label it as such
+    if troubleshooting == true
+        label.new(timenow, close, 'ES', xloc = xloc.bar_time)
+        //If we are on NQ1!, we use the VXN and then calculate zones using a, b, and NQ
+else if str.contains(syminfo.ticker, 'NQ')
+    [VXN_A, VXN_B] = GetVolatility(VXN)
+    Zones(VXN_A, VXN_B, NQ)
+    if troubleshooting == true
+        label.new(timenow, close, 'NQ', xloc = xloc.bar_time)
+        //If we are on CL1!, we use the OVX and then calculate zones using a, b, and CL
+else if str.contains(syminfo.ticker, 'CL')
+    [OVX_A, OVX_B] = GetVolatility(OVX)
+    Zones(OVX_A, OVX_B, CL)
+    if troubleshooting == true
+        label.new(timenow, close, 'CL', xloc = xloc.bar_time)
+        //If we are on RTY1!, we use the RVX and then calculate zones using a, b, and RTY
+else if str.contains(syminfo.ticker, 'RTY') or str.contains(syminfo.ticker, 'M2K')
+    [RVX_A, RVX_B] = GetVolatility(RVX)
+    Zones(RVX_A, RVX_B, RTY)
+    if troubleshooting == true
+        label.new(timenow, close, 'RTY', xloc = xloc.bar_time)
+        //If we are on VIX, we use the VVIX and then calculate zones using a, b, and VIX
+else if ticker.standard(syminfo.tickerid) == 'CBOE:VIX'
+    [VVIX_A, VVIX_B] = GetVolatility(VVIX)
+    Zones(VVIX_A, VVIX_B, VIX)
+    if troubleshooting == true
+        label.new(timenow, close, 'VIX', xloc = xloc.bar_time)
+        //If we are on GC1!, we use the GVZ and then calculate zones using a, b, and GC
+else if str.contains(syminfo.ticker, 'GC')
+    [GVZ_A, GVZ_B] = GetVolatility(GVZ)
+    Zones(GVZ_A, GVZ_B, GC)
+    if troubleshooting == true
+        label.new(timenow, close, 'GC', xloc = xloc.bar_time)
+        //If we are on SILVER1!, we use the VXSLV and then calculate zones using a, b, and SI
+        //Note: the volatility index for silver is discontinued.
+else if ticker.standard(syminfo.tickerid) == 'MCX:SILVER1!'
+    [VXSLV_A, VXSLV_B] = GetVolatility(VXSLV)
+    Zones(VXSLV_A, VXSLV_B, SI)
+    if troubleshooting == true
+        label.new(timenow, close, 'SILVER', xloc = xloc.bar_time)
+        //If we are on YM1!, we use the VXD and then calculate zones using a, b, and YM
+else if str.contains(syminfo.ticker, 'YM')
+    [VXD_A, VXD_B] = GetVolatility(VXD)
+    Zones(VXD_A, VXD_B, YM)
+    if troubleshooting == true
+        label.new(timenow, close, 'YM', xloc = xloc.bar_time)
+else //If we don't recognize the chart and we're troubleshooting, make a label signifying this.
+    if troubleshooting == true
+        label.new(timenow, close, 'NOT RECOGNIZED.', xloc = xloc.bar_time)
