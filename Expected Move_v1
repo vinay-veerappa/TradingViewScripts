@@ -116,7 +116,10 @@ getDoWforFutures() =>
         day := wkNum+day
     str.tostring(day)
 
-getContractCost(_sym, _useClose) => request.security(_sym,_useClose ? "1D" : tf , _useClose? close:open, ignore_invalid_symbol=true)
+//getContractCost(_sym, _useClose) => request.security(_sym,_useClose ? "1D" : tf , _useClose? close:open, ignore_invalid_symbol=true,lookahead = barmerge.lookahead_on)
+getContractCost(_sym, _useClose) => 
+    cls = request.security_lower_tf(_sym, "1" , _useClose? close:open)
+    array.size(cls) > 0 ? array.get(cls, 0) : 0
 
 getContractSym(_underlyingSym, _strike, _side,OptionsData current_symbol_options) =>
     
@@ -186,7 +189,7 @@ var label EMLowHalfLabel = label.new(bar_index, low, text="EM 0.5 Low",textcolor
 var label CenterLabel = label.new(bar_index, low, text="Strike", textcolor = colorCenterInput , style=label.style_none, size = size.small, textalign = text.align_left)
 
 newDay = useClose? not na(time("", "1559-1600", "America/New_York")) :not na(time("", "0930-0931", "America/New_York"))  
-newDayFutures =  useClose? not na(time("", "1614-1615", "America/New_York")) :not na(time("", "0930-0931", "America/New_York"))  
+newDayFutures =  useClose? not na(time("", "1700-1701", "America/New_York")) :not na(time("", "0930-0931", "America/New_York"))  
 newDayIndex =  useClose? not na(time("", "1600-1601", "America/New_York")) :not na(time("", "0930-0931", "America/New_York"))  
 //newDay = timeframe.change("1D")
 //newWeek = timeframe.change('1W')
@@ -199,7 +202,7 @@ var lasstbarvalue = 0
    // log.info("lasstbarvalue " + str.tostring(request.security(syminfo.ticker, "1D" , useClose? close[0]:open, ignore_invalid_symbol=true)))
 
 // only displays on 1m TF when market is closed. 
-if (time > dataWindowStartInput) and ((newDay  and syminfo.type !=  "futures") or (newDayFutures  and syminfo.type ==  "futures") or (newDayIndex  and str.contains(syminfo.type, "index") ))
+if (time > dataWindowStartInput) and ((newDay  and syminfo.type !=  "futures") or (newDay  and syminfo.type ==  "futures") or (newDay  and str.contains(syminfo.type, "index") ))
    // log.info("New Day Ends")
     bi := bar_index
     //nnDay := false
@@ -211,8 +214,6 @@ if (time > dataWindowStartInput) and ((newDay  and syminfo.type !=  "futures") o
     nq_price_fetched = 0.0
     ratio = 0.0 
     ndx_value = 0.0
-
-
 
     if (close > 200  and syminfo.type ==  "stock")  // this will cover a large set of stocks but is still not a good way to do this
         current_symbol_options.strike := 5
@@ -292,27 +293,22 @@ if (time > dataWindowStartInput) and ((newDay  and syminfo.type !=  "futures") o
         EMHighHalfLabel.set_xy(bi+ bi_offset, todayEMHighHalf == 0.0 ? na : todayEMHighHalf)
         EMLowHalfLabel.set_xy(bi+ bi_offset, todayEMLowHalf == 0.0 ? na : todayEMLowHalf)
         CenterLabel.set_xy(bi+ bi_offset, anchorOpen == 0.0 ? na : anchorOpen)
+        CenterLabel.set_text("Strike "+str.tostring(anchorOpen))
+        EMHighLabel.set_text("EM High "+str.tostring(todayEMHigh))
+        EMHighHalfLabel.set_text("EM 0.5 High "+str.tostring(todayEMHighHalf))
+        EMLowLabel.set_text("EM Low "+str.tostring(todayEMLow))
+        EMLowHalfLabel.set_text("EM 0.5 Low  "+str.tostring(todayEMLowHalf))
     
-
+a_allLines = line.all
+a_allLabels = label.all
 // Extend the lines for each bar
 if barstate.islast
-    Center.set_x2(bar_index+ bi_offset)
-    EMHigh.set_x2(bar_index+ bi_offset)
-    EMHighHalf.set_x2(bar_index+ bi_offset)
-    EMLow.set_x2(bar_index+ bi_offset)
-    EMLowHalf.set_x2(bar_index+ bi_offset)
+    if array.size(a_allLines) > 0
+        for i = 0 to array.size(a_allLines) - 1
+            line.set_x2(array.get(a_allLines, i),bar_index+ bi_offset)
+            label.set_x(array.get(a_allLabels, i),bar_index+ bi_offset + 25)
 
-    CenterLabel.set_x(bar_index+ bi_offset + 20)
-    EMHighLabel.set_x(bar_index+ bi_offset + 20)
-    EMHighHalfLabel.set_x(bar_index+ bi_offset + 25)
-    EMLowLabel.set_x(bar_index+ bi_offset + 20)
-    EMLowHalfLabel.set_x(bar_index+ bi_offset + 25)
 
-    CenterLabel.set_text("Strike "+str.tostring(centerStrike))
-    EMHighLabel.set_text("EM High "+str.tostring(todayEMHigh))
-    EMHighHalfLabel.set_text("EM 0.5 High "+str.tostring(todayEMHighHalf))
-    EMLowLabel.set_text("EM Low "+str.tostring(todayEMLow))
-    EMLowHalfLabel.set_text("EM 0.5 Low  "+str.tostring(todayEMLowHalf))
 
 // } logic
 //log.info("New Open " + str.tostring(anchorOpen))
